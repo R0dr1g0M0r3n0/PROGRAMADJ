@@ -12,6 +12,12 @@ add_library(AudioForgeEngine STATIC
 target_compile_features(AudioForgeEngine PUBLIC cxx_std_20)
 target_include_directories(AudioForgeEngine PUBLIC API)
 
+add_library(AudioForgeDJLibrary STATIC
+    DJLibrary/src/library.cpp
+)
+target_compile_features(AudioForgeDJLibrary PUBLIC cxx_std_20)
+target_include_directories(AudioForgeDJLibrary PUBLIC DJLibrary/include)
+
 add_library(AudioForgeBridge STATIC
     Bridge/src/AudioForgeBridge.mm
 )
@@ -31,6 +37,12 @@ set_target_properties(AudioForge PROPERTIES
 )
 
 if(BUILD_TESTING)
+    add_executable(AudioForgeDJLibraryTests
+        Tests/DJLibrary/library_boundary_smoke_test.cpp
+    )
+    target_link_libraries(AudioForgeDJLibraryTests PRIVATE AudioForgeDJLibrary)
+    add_test(NAME AudioForgeDJLibraryTests COMMAND AudioForgeDJLibraryTests)
+
     add_executable(AudioForgeEngineTests
         Tests/Engine/engine_api_smoke_test.c
     )

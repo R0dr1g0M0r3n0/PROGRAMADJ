@@ -4,7 +4,7 @@
 
 CMake is the sole owner of the project graph and generates the Xcode project under `build/`. Do not add a handwritten `.xcodeproj` or duplicate target/source declarations in Xcode. The generated project, CMake intermediates, and other build products remain untracked through the root `.gitignore`.
 
-The graph builds a static C++20 Engine, an Objective-C++ Bridge, and a SwiftUI macOS app in one generated Xcode project. CTest exercises the Engine's C ABI and the Bridge's Objective-C surface. The app imports only the Bridge header; the Bridge calls only the versioned C API.
+The graph builds separate C++20 Engine and DJLibrary static libraries, an Objective-C++ Bridge, and a SwiftUI macOS app in one generated Xcode project. CTest exercises the Engine's C ABI, the Bridge's Objective-C surface, and the independently linked DJLibrary boundary. The app imports only the Bridge header; the Bridge calls only the versioned C API. DJLibrary does not link Engine.
 All targets share a macOS 14.0 deployment baseline.
 
 ## Native Engine API
@@ -15,10 +15,16 @@ Configure the generated Xcode project for Apple Silicon and run the native smoke
 
 ```sh
 cmake -S . -B build -G Xcode -DCMAKE_OSX_ARCHITECTURES=arm64
-cmake --build build --config Debug --target AudioForgeEngineTests
+cmake --build build --config Debug --target AudioForgeEngineTests AudioForgeBridgeTests AudioForgeDJLibraryTests
 ctest --test-dir build -C Debug --output-on-failure
 xcodebuild -project build/AudioForgeStudio.xcodeproj -scheme AudioForge -configuration Debug -sdk macosx CODE_SIGNING_ALLOWED=NO build
+python3 -m unittest discover -s Tests/Harness -p 'test_*.py'
+python3 Harness/run_checks.py --config Debug
 ```
+
+Repeat the native test build and CTest with `--config Release` and `-C Release` to validate optimized builds. The harness is a thin CTest CLI; it does not configure or build targets. Run its Python unit test separately. `TestFixtures/synthetic_collection.json` contains no audio paths or personal metadata and is not consumed by production code.
+
+DJLibrary currently exports only a build marker to prove isolated compilation and linkage. It does not import, parse, export, or modify Rekordbox data. The fixture is a placeholder contract, not evidence of library compatibility. GUI launch, signed packaging, and real-library round trips are outside PD-63.
 
 ## Module ownership
 
@@ -28,10 +34,10 @@ xcodebuild -project build/AudioForgeStudio.xcodeproj -scheme AudioForge -configu
 | `Bridge/` | Objective-C++ adaptation between Swift/Objective-C and the stable C ABI | `API/`; Apple runtime/frameworks required for adaptation |
 | `Engine/` | Reusable audio/domain implementation and static library | C++ standard library and explicitly approved engine internals; no Swift, AppKit, or Rekordbox dependency |
 | `API/` | Versioned, C-compatible public boundary shared by the bridge, engine, and native tests | C language/ABI types only; no Swift or Objective-C++ declarations |
-| `DJLibrary/` | Future Rekordbox/library metadata import and catalog boundary | Its own data/domain dependencies; no ownership of Engine internals |
-| `Harness/` | Development and integration entry points used to exercise the native boundary | `API/` and test tooling; must not become a second engine implementation |
+| `DJLibrary/` | Isolated library/catalog module; currently a build-only marker, with import behavior reserved for later work | C++ standard library only; no Engine dependency or ownership of Engine internals |
+| `Harness/` | Python CLI that invokes the configured CTest suite | Python standard library and CTest; must not become a second engine implementation |
 | `Tests/` | Native and app-level automated tests | Public APIs of the component under test and approved test frameworks |
-| `TestFixtures/` | Small, non-sensitive test-only inputs and expected data | No production code; never store a user's music library or Rekordbox database here |
+| `TestFixtures/` | Small, synthetic test-only inputs; currently an inert empty collection manifest | No production code; never store a user's music library or Rekordbox database here |
 | `docs/` | Architecture, build, and repository guidance | No runtime dependencies |
 
 ## Dependency direction
