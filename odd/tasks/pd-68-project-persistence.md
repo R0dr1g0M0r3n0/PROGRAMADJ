@@ -57,5 +57,5 @@ Repository source, tests, CMake metadata and this task document only. Installing
 - Delivery strategy: ask-on-risk; split into stacked PRs if the accumulated diff exceeds the 400-line review budget.
 - TDD: RED observed when `cmake --build build --config Debug --target AudioForgeProjectPersistenceTests` failed to compile because `project_store.hpp` did not exist; GREEN followed by adding the persistence boundary, implementation, and tests.
 - Verification: `cmake -S . -B build -G Xcode -DCMAKE_OSX_ARCHITECTURES=arm64` — passed; `cmake --build build --config Debug` — passed; `ctest --test-dir build -C Debug --output-on-failure` — 4/4 passed; `python3 -m unittest discover -s Tests/Harness -p 'test_*.py'` — 1 test passed; `git diff --check` — passed.
-- T1/T2 work-unit commit: pending.
+- T1/T2 work-unit commit: `1230ca6263816065f9bdd5e823f7760536aba6dc` (`feat(project-persistence): add validated manifest storage`).
 - Next: implement T3 migration dispatch and tests, then complete T4 evidence and delivery.
