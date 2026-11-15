@@ -41,6 +41,43 @@ int main(void) {
     audioforge_engine_destroy(engine);
     audioforge_engine_destroy(NULL);
 
+    /* Versioned processing contracts are declarative; processing is not yet
+     * implemented and must fail deterministically without leaving output. */
+    float input[2] = {1.0f, -1.0f};
+    float output[4] = {7.0f, 7.0f, 7.0f, 7.0f};
+    AudioForgeProcessRequest request = AUDIOFORGE_PROCESS_REQUEST_INIT;
+    request.input.samples = input;
+    request.input.sample_count = 2;
+    request.output.samples = output;
+    request.output.capacity_samples = 4;
+    AudioForgeProcessResult result = AUDIOFORGE_PROCESS_RESULT_INIT;
+    AudioForgeError error = AUDIOFORGE_ERROR_INIT;
+
+    if (!check_condition(
+            audioforge_engine_process(&request, &result, &error) ==
+                AUDIOFORGE_STATUS_UNSUPPORTED,
+            "processing reports unsupported until behavior is implemented") ||
+        !check_condition(result.status == AUDIOFORGE_STATUS_UNSUPPORTED,
+                         "result carries explicit unsupported status") ||
+        !check_condition(error.code == AUDIOFORGE_ERROR_UNSUPPORTED_PROCESSING,
+                         "error identifies unsupported processing") ||
+        !check_condition(output[0] == 0.0f && output[1] == 0.0f &&
+                             output[2] == 0.0f && output[3] == 0.0f,
+                         "borrowed output is cleared on failure")) {
+        return EXIT_FAILURE;
+    }
+
+    output[0] = output[1] = 9.0f;
+    request.api_version.major += 1;
+    if (!check_condition(
+            audioforge_engine_process(&request, &result, &error) ==
+                AUDIOFORGE_STATUS_VERSION_MISMATCH,
+            "unknown API versions are rejected") ||
+        !check_condition(output[0] == 0.0f && output[1] == 0.0f,
+                         "version errors clear caller output")) {
+        return EXIT_FAILURE;
+    }
+
     AudioForgeCancellationToken token = AUDIOFORGE_CANCELLATION_TOKEN_INIT;
     int32_t is_cancelled = 1;
     if (!check_condition(audioforge_cancellation_token_validate(&token) ==
@@ -68,6 +105,20 @@ int main(void) {
     if (!check_condition(audioforge_cancellation_token_validate(&token) ==
                              AUDIOFORGE_STATUS_INVALID_ARGUMENT,
                          "invalid cancellation state is rejected")) {
+        return EXIT_FAILURE;
+    }
+
+    request.api_version = (AudioForgeVersion)AUDIOFORGE_API_VERSION_INIT;
+    request.cancellation = &token;
+    output[0] = output[1] = 4.0f;
+    if (!check_condition(audioforge_engine_process(&request, &result, &error) ==
+                             AUDIOFORGE_STATUS_INVALID_ARGUMENT,
+                         "processing rejects an invalid cancellation token") ||
+        !check_condition(error.code ==
+                             AUDIOFORGE_ERROR_INVALID_CANCELLATION_TOKEN,
+                         "invalid cancellation has a structured error") ||
+        !check_condition(output[0] == 0.0f && output[1] == 0.0f,
+                         "invalid-token failure clears output")) {
         return EXIT_FAILURE;
     }
 
@@ -108,6 +159,41 @@ int main(void) {
         !check_condition(mapped_frame == 0,
                          "failed frame mapping clears its output slot")) {
         return EXIT_FAILURE;
+    }
+
+    struct SmallVersionedResult {
+        uint32_t struct_size;
+        unsigned char guard[64];
+    } small_result = {sizeof(uint32_t), {0}};
+    struct SmallVersionedError {
+        uint32_t struct_size;
+        unsigned char guard[64];
+    } small_error = {sizeof(uint32_t), {0}};
+    memset(small_result.guard, 0xa5, sizeof(small_result.guard));
+    memset(small_error.guard, 0x5a, sizeof(small_error.guard));
+    request.cancellation = NULL;
+    request.time_transform = NULL;
+    output[0] = output[1] = 3.0f;
+    if (!check_condition(
+            audioforge_engine_process(
+                &request, (AudioForgeProcessResult*)&small_result,
+                (AudioForgeError*)&small_error) ==
+                AUDIOFORGE_STATUS_INVALID_ARGUMENT,
+            "undersized versioned result and error records are rejected") ||
+        !check_condition(small_result.struct_size == sizeof(uint32_t) &&
+                             small_error.struct_size == sizeof(uint32_t),
+                         "undersized record size headers remain unchanged") ||
+        !check_condition(output[0] == 0.0f && output[1] == 0.0f,
+                         "undersized metadata failure still clears caller output")) {
+        return EXIT_FAILURE;
+    }
+    for (size_t index = 0; index < sizeof(small_result.guard); ++index) {
+        if (!check_condition(small_result.guard[index] == 0xa5,
+                             "result writes stay inside declared size") ||
+            !check_condition(small_error.guard[index] == 0x5a,
+                             "error writes stay inside declared size")) {
+            return EXIT_FAILURE;
+        }
     }
 
     return 0;

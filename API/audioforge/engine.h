@@ -83,6 +83,55 @@ typedef void (*AudioForgeRealtimeCallback)(const float* input,
                                            uint32_t channel_count,
                                            void* context);
 
+typedef struct AudioForgeInputBuffer {
+    const float* samples;
+    uint64_t sample_count;
+} AudioForgeInputBuffer;
+
+typedef struct AudioForgeOutputBuffer {
+    float* samples;
+    uint64_t capacity_samples;
+} AudioForgeOutputBuffer;
+
+typedef struct AudioForgeProcessRequest {
+    uint32_t struct_size;
+    AudioForgeVersion api_version;
+    AudioForgeInputBuffer input;
+    AudioForgeOutputBuffer output;
+    const AudioForgeCancellationToken* cancellation;
+    const AudioForgeTimeTransform* time_transform;
+    /* Future synchronous implementations invoke this on the caller's
+     * control thread only, never on an audio thread. */
+    AudioForgeProgressCallback progress_callback;
+    void* progress_context;
+} AudioForgeProcessRequest;
+
+#define AUDIOFORGE_PROCESS_REQUEST_INIT \
+    { (uint32_t)sizeof(AudioForgeProcessRequest), AUDIOFORGE_API_VERSION_INIT, \
+      { NULL, 0 }, { NULL, 0 }, NULL, NULL, NULL, NULL }
+
+typedef struct AudioForgeProcessResult {
+    uint32_t struct_size;
+    AudioForgeVersion api_version;
+    AudioForgeStatus status;
+    uint32_t reserved;
+    uint64_t frames_processed;
+    uint64_t output_samples_written;
+} AudioForgeProcessResult;
+
+#define AUDIOFORGE_PROCESS_RESULT_INIT \
+    { (uint32_t)sizeof(AudioForgeProcessResult), AUDIOFORGE_API_VERSION_INIT, \
+      AUDIOFORGE_STATUS_OK, 0, 0, 0 }
+
+typedef struct AudioForgeError {
+    uint32_t struct_size;
+    AudioForgeErrorCode code;
+    uint32_t reserved;
+} AudioForgeError;
+
+#define AUDIOFORGE_ERROR_INIT \
+    { (uint32_t)sizeof(AudioForgeError), AUDIOFORGE_ERROR_NONE, 0 }
+
 AudioForgeVersion audioforge_engine_get_version(void);
 
 /* On success, stores a caller-owned engine handle in out_engine. On failure,
@@ -92,6 +141,19 @@ AudioForgeStatus audioforge_engine_create(AudioForgeEngine** out_engine);
 
 /* Releases a handle created by audioforge_engine_create. NULL is accepted. */
 void audioforge_engine_destroy(AudioForgeEngine* engine);
+
+/* Buffers and callback context are borrowed for this synchronous call only;
+ * no pointer is retained. The caller asserts output capacity is writable.
+ * On failure the entire supplied output capacity is zeroed when its byte size
+ * is representable. Result and error records must declare at least their
+ * current struct sizes; undersized records are rejected without modifying
+ * either record. Valid records are written only through the current struct
+ * prefix. This contract currently validates and returns UNSUPPORTED; it does
+ * not perform audio processing or invoke either callback. */
+AudioForgeStatus audioforge_engine_process(
+    const AudioForgeProcessRequest* request,
+    AudioForgeProcessResult* result,
+    AudioForgeError* error);
 
 /* Token state must be initialized with AUDIOFORGE_CANCELLATION_TOKEN_INIT.
  * Cancellation may be requested from another thread; repeated cancellation
