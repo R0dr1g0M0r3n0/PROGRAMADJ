@@ -2,8 +2,8 @@
 
 `project-manifest-v1.schema.json` defines the shape of an AudioForge project. The
 manifest records references and decisions; it is not an audio container, a DJ
-library export, or a save/load implementation. A representative synthetic
-fixture follows in the next review slice.
+library export, or a save/load implementation. `TestFixtures/project_manifest_v1.json`
+is synthetic design evidence, not a production file.
 
 ## Quick path
 

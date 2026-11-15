@@ -1,0 +1,148 @@
+{
+  "schemaVersion": 1,
+  "projectId": "00000000-0000-4000-8000-000000000015",
+  "createdAt": "2026-01-01T12:00:00.000Z",
+  "updatedAt": "2026-01-01T12:04:00.000Z",
+  "sourceAssets": [
+    {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "kind": "audio",
+      "originalPath": "/synthetic/audio/example.wav",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "byteSize": 4096,
+      "importedAt": "2026-01-01T12:00:00.000Z"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000002",
+      "kind": "dj_library",
+      "originalPath": "/synthetic/library/example.xml",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "importedAt": "2026-01-01T12:00:00.000Z"
+    }
+  ],
+  "derivedAssets": [
+    {
+      "id": "00000000-0000-4000-8000-000000000003",
+      "rootSourceAssetId": "00000000-0000-4000-8000-000000000001",
+      "parentAssetId": "00000000-0000-4000-8000-000000000001",
+      "relativePath": "derived/example-v1.wav",
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "profileId": "00000000-0000-4000-8000-000000000011",
+      "createdAt": "2026-01-01T12:01:00.000Z"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "00000000-0000-4000-8000-000000000004",
+      "sourceAssetId": "00000000-0000-4000-8000-000000000001",
+      "activeAssetId": "00000000-0000-4000-8000-000000000003",
+      "createdAt": "2026-01-01T12:00:00.000Z",
+      "userMetadata": { "title": "Synthetic Example", "color": "blue" }
+    }
+  ],
+  "regions": [
+    {
+      "id": "00000000-0000-4000-8000-000000000005",
+      "trackId": "00000000-0000-4000-8000-000000000004",
+      "assetId": "00000000-0000-4000-8000-000000000003",
+      "span": { "startFrame": 48000, "endFrame": 96000 },
+      "kind": "edit",
+      "label": "Synthetic edit region"
+    }
+  ],
+  "history": [
+    {
+      "id": "00000000-0000-4000-8000-000000000006",
+      "trackId": "00000000-0000-4000-8000-000000000004",
+      "at": "2026-01-01T12:01:00.000Z",
+      "operation": "render-derived-asset",
+      "target": { "kind": "derived_asset", "id": "00000000-0000-4000-8000-000000000003" },
+      "inputAssetIds": ["00000000-0000-4000-8000-000000000001"],
+      "outputAssetId": "00000000-0000-4000-8000-000000000003",
+      "profileId": "00000000-0000-4000-8000-000000000011",
+      "parameters": { "fixtureOnly": true }
+    }
+  ],
+  "cues": [
+    {
+      "id": "00000000-0000-4000-8000-000000000007",
+      "trackId": "00000000-0000-4000-8000-000000000004",
+      "assetId": "00000000-0000-4000-8000-000000000003",
+      "frame": 48000,
+      "label": "Start"
+    }
+  ],
+  "loops": [
+    {
+      "id": "00000000-0000-4000-8000-000000000008",
+      "trackId": "00000000-0000-4000-8000-000000000004",
+      "assetId": "00000000-0000-4000-8000-000000000003",
+      "span": { "startFrame": 48000, "endFrame": 96000 },
+      "label": "Example loop"
+    }
+  ],
+  "beatgrids": [
+    {
+      "id": "00000000-0000-4000-8000-000000000009",
+      "trackId": "00000000-0000-4000-8000-000000000004",
+      "assetId": "00000000-0000-4000-8000-000000000003",
+      "anchors": [
+        { "frame": 48000, "beatIndex": 0 },
+        { "frame": 72000, "beatIndex": 1 }
+      ]
+    }
+  ],
+  "phrases": [
+    {
+      "id": "00000000-0000-4000-8000-000000000010",
+      "trackId": "00000000-0000-4000-8000-000000000004",
+      "assetId": "00000000-0000-4000-8000-000000000003",
+      "span": { "startFrame": 48000, "endFrame": 96000 },
+      "label": "Intro"
+    }
+  ],
+  "profiles": [
+    {
+      "id": "00000000-0000-4000-8000-000000000011",
+      "kind": "processing",
+      "name": "Fixture render profile",
+      "revision": 1,
+      "parameters": { "fixtureOnly": true },
+      "createdAt": "2026-01-01T12:00:00.000Z"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000012",
+      "kind": "analysis",
+      "name": "Fixture beatgrid profile",
+      "revision": 1,
+      "parameters": { "fixtureOnly": true },
+      "createdAt": "2026-01-01T12:01:00.000Z"
+    }
+  ],
+  "validityClaims": [
+    {
+      "id": "00000000-0000-4000-8000-000000000013",
+      "subject": { "kind": "beatgrid", "id": "00000000-0000-4000-8000-000000000009" },
+      "status": "unknown",
+      "assertedAt": "2026-01-01T12:02:00.000Z",
+      "provenance": {
+        "origin": "analysis",
+        "assetIds": ["00000000-0000-4000-8000-000000000003"],
+        "profileId": "00000000-0000-4000-8000-000000000012",
+        "note": "Synthetic result; no analysis was performed"
+      }
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000014",
+      "subject": { "kind": "beatgrid", "id": "00000000-0000-4000-8000-000000000009" },
+      "status": "valid",
+      "assertedAt": "2026-01-01T12:03:00.000Z",
+      "supersedesClaimId": "00000000-0000-4000-8000-000000000013",
+      "provenance": {
+        "origin": "user",
+        "assetIds": ["00000000-0000-4000-8000-000000000003"],
+        "note": "Synthetic user assertion, not verified audio evidence"
+      }
+    }
+  ]
+}
