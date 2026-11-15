@@ -11,6 +11,8 @@ All targets share a macOS 14.0 deployment baseline.
 
 `API/audioforge/engine.h` is the versioned C-compatible public boundary. The Engine exports its API version and an opaque, caller-owned handle. Creation reports `OK`, `INVALID_ARGUMENT`, or `OUT_OF_MEMORY`; a valid output slot is cleared before allocation, and callers release a successful handle exactly once with `audioforge_engine_destroy`. Destroy accepts `NULL`. No engine implementation types cross the ABI.
 
+Cancellation tokens are caller-owned and atomically cancellable. Time transforms map absolute source frames into output frames with checked integer arithmetic; the source interval is half-open. Progress and real-time callbacks are declarative contracts only and are not invoked by this slice.
+
 Configure the generated Xcode project for Apple Silicon and run the native smoke test with:
 
 ```sh
