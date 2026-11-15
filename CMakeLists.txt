@@ -5,6 +5,7 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET 14.0)
 project(AudioForgeStudio LANGUAGES C CXX OBJCXX Swift)
 
 include(CTest)
+find_package(nlohmann_json CONFIG REQUIRED)
 
 add_library(AudioForgeEngine STATIC
     Engine/src/engine.cpp
@@ -17,6 +18,13 @@ add_library(AudioForgeDJLibrary STATIC
 )
 target_compile_features(AudioForgeDJLibrary PUBLIC cxx_std_20)
 target_include_directories(AudioForgeDJLibrary PUBLIC DJLibrary/include)
+
+add_library(AudioForgeProjectPersistence STATIC
+    ProjectPersistence/src/project_store.cpp
+)
+target_compile_features(AudioForgeProjectPersistence PUBLIC cxx_std_20)
+target_include_directories(AudioForgeProjectPersistence PUBLIC ProjectPersistence/include)
+target_link_libraries(AudioForgeProjectPersistence PUBLIC nlohmann_json::nlohmann_json)
 
 add_library(AudioForgeBridge STATIC
     Bridge/src/AudioForgeBridge.mm
@@ -54,6 +62,16 @@ if(BUILD_TESTING)
     )
     target_link_libraries(AudioForgeBridgeTests PRIVATE AudioForgeBridge)
     add_test(NAME AudioForgeBridgeTests COMMAND AudioForgeBridgeTests)
+
+    add_executable(AudioForgeProjectPersistenceTests
+        Tests/ProjectPersistence/project_store_test.cpp
+    )
+    target_link_libraries(AudioForgeProjectPersistenceTests PRIVATE AudioForgeProjectPersistence)
+    target_compile_features(AudioForgeProjectPersistenceTests PRIVATE cxx_std_20)
+    target_compile_definitions(AudioForgeProjectPersistenceTests PRIVATE
+        PROJECT_MANIFEST_FIXTURE="${CMAKE_SOURCE_DIR}/TestFixtures/project_manifest_v1.json"
+    )
+    add_test(NAME AudioForgeProjectPersistenceTests COMMAND AudioForgeProjectPersistenceTests)
 
     set_tests_properties(AudioForgeEngineTests AudioForgeBridgeTests
         PROPERTIES LABELS "api-contract"
