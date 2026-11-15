@@ -1,0 +1,7 @@
+# CMake and Xcode generated build products
+/build/
+/cmake-build-*/
+/DerivedData/
+
+# macOS metadata
+.DS_Store
