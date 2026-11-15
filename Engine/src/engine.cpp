@@ -38,6 +38,28 @@ extern "C" void audioforge_engine_destroy(AudioForgeEngine* engine) {
 
 namespace {
 
+void set_result(AudioForgeProcessResult* result, AudioForgeStatus status) {
+    const uint32_t declared_size = result->struct_size;
+    std::memset(result, 0, sizeof(*result));
+    result->struct_size = declared_size;
+    result->api_version = AudioForgeVersion AUDIOFORGE_API_VERSION_INIT;
+    result->status = status;
+}
+
+void set_error(AudioForgeError* error, AudioForgeErrorCode code) {
+    const uint32_t declared_size = error->struct_size;
+    std::memset(error, 0, sizeof(*error));
+    error->struct_size = declared_size;
+    error->code = code;
+}
+
+bool has_writable_output_records(const AudioForgeProcessResult* result,
+                                 const AudioForgeError* error) {
+    return result != nullptr && error != nullptr &&
+           result->struct_size >= sizeof(*result) &&
+           error->struct_size >= sizeof(*error);
+}
+
 AudioForgeStatus validate_time_transform(
     const AudioForgeTimeTransform* transform) {
     if (transform == nullptr ||
@@ -51,6 +73,19 @@ AudioForgeStatus validate_time_transform(
         return AUDIOFORGE_STATUS_INVALID_ARGUMENT;
     }
     return AUDIOFORGE_STATUS_OK;
+}
+
+void clear_output(const AudioForgeProcessRequest* request) {
+    if (request == nullptr ||
+        request->struct_size < sizeof(AudioForgeProcessRequest) ||
+        request->output.samples == nullptr ||
+        request->output.capacity_samples >
+            std::numeric_limits<size_t>::max() / sizeof(float)) {
+        return;
+    }
+    std::memset(request->output.samples, 0,
+                static_cast<size_t>(request->output.capacity_samples) *
+                    sizeof(float));
 }
 
 }  // namespace
@@ -125,4 +160,55 @@ extern "C" AudioForgeStatus audioforge_time_transform_map_source_frame(
     }
     *output_frame = transform->output_start_frame + output_offset;
     return AUDIOFORGE_STATUS_OK;
+}
+
+extern "C" AudioForgeStatus audioforge_engine_process(
+    const AudioForgeProcessRequest* request,
+    AudioForgeProcessResult* result,
+    AudioForgeError* error) {
+    clear_output(request);
+
+    if (!has_writable_output_records(result, error)) {
+        return AUDIOFORGE_STATUS_INVALID_ARGUMENT;
+    }
+
+    set_result(result, AUDIOFORGE_STATUS_INVALID_ARGUMENT);
+    set_error(error, AUDIOFORGE_ERROR_INVALID_ARGUMENT);
+
+    if (request == nullptr ||
+        request->struct_size < sizeof(AudioForgeProcessRequest)) {
+        return AUDIOFORGE_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (request->api_version.major != AUDIOFORGE_API_VERSION_MAJOR ||
+        request->api_version.minor != AUDIOFORGE_API_VERSION_MINOR ||
+        request->api_version.patch != AUDIOFORGE_API_VERSION_PATCH) {
+        set_result(result, AUDIOFORGE_STATUS_VERSION_MISMATCH);
+        set_error(error, AUDIOFORGE_ERROR_VERSION_MISMATCH);
+        return AUDIOFORGE_STATUS_VERSION_MISMATCH;
+    }
+
+    if ((request->input.sample_count != 0 && request->input.samples == nullptr) ||
+        (request->output.capacity_samples != 0 &&
+         request->output.samples == nullptr) ||
+        (request->cancellation != nullptr &&
+         audioforge_cancellation_token_validate(request->cancellation) !=
+             AUDIOFORGE_STATUS_OK)) {
+        if (request->cancellation != nullptr &&
+            audioforge_cancellation_token_validate(request->cancellation) !=
+                AUDIOFORGE_STATUS_OK) {
+            set_error(error, AUDIOFORGE_ERROR_INVALID_CANCELLATION_TOKEN);
+        }
+        return AUDIOFORGE_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (request->time_transform != nullptr &&
+        validate_time_transform(request->time_transform) != AUDIOFORGE_STATUS_OK) {
+        set_error(error, AUDIOFORGE_ERROR_INVALID_TIME_TRANSFORM);
+        return AUDIOFORGE_STATUS_INVALID_ARGUMENT;
+    }
+
+    set_result(result, AUDIOFORGE_STATUS_UNSUPPORTED);
+    set_error(error, AUDIOFORGE_ERROR_UNSUPPORTED_PROCESSING);
+    return AUDIOFORGE_STATUS_UNSUPPORTED;
 }

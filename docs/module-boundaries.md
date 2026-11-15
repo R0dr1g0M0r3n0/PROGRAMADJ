@@ -13,6 +13,8 @@ All targets share a macOS 14.0 deployment baseline.
 
 Cancellation tokens are caller-owned and atomically cancellable. Time transforms map absolute source frames into output frames with checked integer arithmetic; the source interval is half-open. Progress and real-time callbacks are declarative contracts only and are not invoked by this slice.
 
+Versioned process request, result, and error records borrow caller buffers for the synchronous call only. The current implementation validates inputs, clears writable output on failure, rejects undersized output records without writing them, and returns structured `UNSUPPORTED`; it does not process audio or invoke callbacks.
+
 Configure the generated Xcode project for Apple Silicon and run the native smoke test with:
 
 ```sh
