@@ -16,7 +16,8 @@ struct ValidationResult {
     [[nodiscard]] bool is_valid() const noexcept { return errors.empty(); }
 };
 
-[[nodiscard]] ValidationResult validate_manifest(const Manifest& manifest);
+[[nodiscard]] ValidationResult validate_manifest(
+    const Manifest& manifest, const std::filesystem::path& project_directory = {});
 [[nodiscard]] Manifest load_manifest(const std::filesystem::path& path);
 void save_manifest(const std::filesystem::path& path, const Manifest& manifest);
 

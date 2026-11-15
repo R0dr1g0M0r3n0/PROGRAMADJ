@@ -25,6 +25,9 @@ add_library(AudioForgeProjectPersistence STATIC
 target_compile_features(AudioForgeProjectPersistence PUBLIC cxx_std_20)
 target_include_directories(AudioForgeProjectPersistence PUBLIC ProjectPersistence/include)
 target_link_libraries(AudioForgeProjectPersistence PUBLIC nlohmann_json::nlohmann_json)
+target_compile_definitions(AudioForgeProjectPersistence PRIVATE
+    PROJECT_MANIFEST_SCHEMA_PATH="${CMAKE_SOURCE_DIR}/docs/project-manifest-v1.schema.json"
+)
 
 add_library(AudioForgeBridge STATIC
     Bridge/src/AudioForgeBridge.mm
