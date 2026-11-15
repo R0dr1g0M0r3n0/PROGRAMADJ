@@ -4,7 +4,19 @@
 
 CMake is the sole owner of the project graph and generates the Xcode project under `build/`. Do not add a handwritten `.xcodeproj` or duplicate target/source declarations in Xcode. The generated project, CMake intermediates, and other build products remain untracked through the root `.gitignore`.
 
-The intended graph contains a SwiftUI macOS app, an Objective-C++ adaptation bridge, a static C++20 engine, and test/harness targets. Build-system source is added in a later task; this scaffold intentionally contains no executable implementation.
+The graph currently builds a static C++20 Engine and a dependency-free CTest smoke test through CMake. The SwiftUI app and Objective-C++ adaptation bridge remain future targets in the same generated graph.
+
+## Native Engine API
+
+`API/audioforge/engine.h` is the versioned C-compatible public boundary. The Engine exports its API version and an opaque, caller-owned handle. Creation reports `OK`, `INVALID_ARGUMENT`, or `OUT_OF_MEMORY`; a valid output slot is cleared before allocation, and callers release a successful handle exactly once with `audioforge_engine_destroy`. Destroy accepts `NULL`. No engine implementation types cross the ABI.
+
+Configure the generated Xcode project for Apple Silicon and run the native smoke test with:
+
+```sh
+cmake -S . -B build -G Xcode -DCMAKE_OSX_ARCHITECTURES=arm64
+cmake --build build --config Debug --target AudioForgeEngineTests
+ctest --test-dir build -C Debug --output-on-failure
+```
 
 ## Module ownership
 
