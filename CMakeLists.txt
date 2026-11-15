@@ -54,4 +54,8 @@ if(BUILD_TESTING)
     )
     target_link_libraries(AudioForgeBridgeTests PRIVATE AudioForgeBridge)
     add_test(NAME AudioForgeBridgeTests COMMAND AudioForgeBridgeTests)
+
+    set_tests_properties(AudioForgeEngineTests AudioForgeBridgeTests
+        PROPERTIES LABELS "api-contract"
+    )
 endif()
