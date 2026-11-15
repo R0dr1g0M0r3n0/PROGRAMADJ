@@ -1,0 +1,228 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:audioforge:project-manifest:v1",
+  "title": "AudioForge project manifest, version 1",
+  "description": "Declarative project contract. Cross-record invariants are specified in project-schema.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion", "projectId", "createdAt", "updatedAt", "sourceAssets",
+    "derivedAssets", "tracks", "regions", "history", "cues", "loops",
+    "beatgrids", "phrases", "profiles", "validityClaims"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "projectId": { "$ref": "#/$defs/id" },
+    "createdAt": { "$ref": "#/$defs/utcTimestamp" },
+    "updatedAt": { "$ref": "#/$defs/utcTimestamp" },
+    "sourceAssets": { "type": "array", "items": { "$ref": "#/$defs/sourceAsset" } },
+    "derivedAssets": { "type": "array", "items": { "$ref": "#/$defs/derivedAsset" } },
+    "tracks": { "type": "array", "items": { "$ref": "#/$defs/track" } },
+    "regions": { "type": "array", "items": { "$ref": "#/$defs/region" } },
+    "history": { "type": "array", "items": { "$ref": "#/$defs/historyEntry" } },
+    "cues": { "type": "array", "items": { "$ref": "#/$defs/cue" } },
+    "loops": { "type": "array", "items": { "$ref": "#/$defs/loop" } },
+    "beatgrids": { "type": "array", "items": { "$ref": "#/$defs/beatgrid" } },
+    "phrases": { "type": "array", "items": { "$ref": "#/$defs/phrase" } },
+    "profiles": { "type": "array", "items": { "$ref": "#/$defs/profile" } },
+    "validityClaims": { "type": "array", "items": { "$ref": "#/$defs/validityClaim" } }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "utcTimestamp": {
+      "type": "string",
+      "description": "Canonical UTC timestamp with millisecond precision; calendar validity is a semantic check.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"
+    },
+    "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "frame": { "type": "integer", "minimum": 0 },
+    "span": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["startFrame", "endFrame"],
+      "description": "Half-open frame interval in the referenced asset's frame domain; start < end is semantic.",
+      "properties": {
+        "startFrame": { "$ref": "#/$defs/frame" },
+        "endFrame": { "$ref": "#/$defs/frame" }
+      }
+    },
+    "sourceAsset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "originalPath", "sha256", "importedAt"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "kind": { "enum": ["audio", "dj_library", "document"] },
+        "originalPath": { "type": "string", "minLength": 1 },
+        "sha256": { "$ref": "#/$defs/digest" },
+        "byteSize": { "type": "integer", "minimum": 0 },
+        "importedAt": { "$ref": "#/$defs/utcTimestamp" }
+      }
+    },
+    "derivedAsset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "rootSourceAssetId", "parentAssetId", "relativePath", "sha256", "profileId", "createdAt"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "rootSourceAssetId": { "$ref": "#/$defs/id" },
+        "parentAssetId": { "$ref": "#/$defs/id" },
+        "relativePath": { "type": "string", "minLength": 1 },
+        "sha256": { "$ref": "#/$defs/digest" },
+        "byteSize": { "type": "integer", "minimum": 0 },
+        "profileId": { "$ref": "#/$defs/id" },
+        "createdAt": { "$ref": "#/$defs/utcTimestamp" }
+      }
+    },
+    "track": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "sourceAssetId", "activeAssetId", "createdAt", "userMetadata"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "sourceAssetId": { "$ref": "#/$defs/id" },
+        "activeAssetId": { "$ref": "#/$defs/id" },
+        "createdAt": { "$ref": "#/$defs/utcTimestamp" },
+        "userMetadata": {
+          "type": "object",
+          "description": "Project-owned JSON metadata; not an export or mutation of external library metadata."
+        }
+      }
+    },
+    "region": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "trackId", "assetId", "span", "kind"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "trackId": { "$ref": "#/$defs/id" },
+        "assetId": { "$ref": "#/$defs/id" },
+        "span": { "$ref": "#/$defs/span" },
+        "kind": { "enum": ["selection", "edit", "analysis"] },
+        "label": { "type": "string" }
+      }
+    },
+    "historyEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "trackId", "at", "operation", "target", "inputAssetIds"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "trackId": { "$ref": "#/$defs/id" },
+        "at": { "$ref": "#/$defs/utcTimestamp" },
+        "operation": { "type": "string", "minLength": 1 },
+        "target": { "$ref": "#/$defs/subject" },
+        "inputAssetIds": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true },
+        "outputAssetId": { "$ref": "#/$defs/id" },
+        "profileId": { "$ref": "#/$defs/id" },
+        "parameters": { "type": "object" }
+      }
+    },
+    "cue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "trackId", "assetId", "frame", "label"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "trackId": { "$ref": "#/$defs/id" },
+        "assetId": { "$ref": "#/$defs/id" },
+        "frame": { "$ref": "#/$defs/frame" },
+        "label": { "type": "string" }
+      }
+    },
+    "loop": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "trackId", "assetId", "span"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "trackId": { "$ref": "#/$defs/id" },
+        "assetId": { "$ref": "#/$defs/id" },
+        "span": { "$ref": "#/$defs/span" },
+        "label": { "type": "string" }
+      }
+    },
+    "beatgrid": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "trackId", "assetId", "anchors"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "trackId": { "$ref": "#/$defs/id" },
+        "assetId": { "$ref": "#/$defs/id" },
+        "anchors": {
+          "type": "array", "minItems": 2,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["frame", "beatIndex"],
+            "properties": {
+              "frame": { "$ref": "#/$defs/frame" },
+              "beatIndex": { "type": "integer" }
+            }
+          }
+        }
+      }
+    },
+    "phrase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "trackId", "assetId", "span", "label"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "trackId": { "$ref": "#/$defs/id" },
+        "assetId": { "$ref": "#/$defs/id" },
+        "span": { "$ref": "#/$defs/span" },
+        "label": { "type": "string", "minLength": 1 }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "name", "revision", "parameters", "createdAt"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "kind": { "enum": ["processing", "analysis"] },
+        "name": { "type": "string", "minLength": 1 },
+        "revision": { "type": "integer", "minimum": 1 },
+        "parameters": { "type": "object" },
+        "createdAt": { "$ref": "#/$defs/utcTimestamp" }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": { "enum": ["track", "region", "cue", "loop", "beatgrid", "phrase", "derived_asset"] },
+        "id": { "$ref": "#/$defs/id" }
+      }
+    },
+    "validityClaim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "subject", "status", "assertedAt", "provenance"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "subject": { "$ref": "#/$defs/subject" },
+        "status": { "enum": ["valid", "invalid", "unknown"] },
+        "assertedAt": { "$ref": "#/$defs/utcTimestamp" },
+        "supersedesClaimId": { "$ref": "#/$defs/id" },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["origin", "assetIds"],
+          "properties": {
+            "origin": { "enum": ["user", "import", "analysis", "verification"] },
+            "assetIds": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true },
+            "profileId": { "$ref": "#/$defs/id" },
+            "historyId": { "$ref": "#/$defs/id" },
+            "note": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}
