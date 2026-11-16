@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <string.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -174,6 +175,108 @@ AudioForgeStatus audioforge_time_transform_map_source_frame(
     const AudioForgeTimeTransform* transform,
     uint64_t source_frame,
     uint64_t* output_frame);
+
+
+typedef struct AudioForgeAudioBuffer {
+    uint32_t struct_size;
+    uint32_t channel_count;
+    uint32_t sample_rate;
+    uint32_t reserved;
+    uint64_t frame_count;
+    const float* samples;
+} AudioForgeAudioBuffer;
+
+#define AUDIOFORGE_AUDIO_BUFFER_INIT \
+    { (uint32_t)sizeof(AudioForgeAudioBuffer), 0, 0, 0, 0, NULL }
+
+typedef struct AudioForgeAudioBufferOutput {
+    uint32_t struct_size;
+    uint32_t channel_count;
+    uint32_t sample_rate;
+    uint32_t reserved;
+    uint64_t frame_capacity;
+    uint64_t frame_count;
+    float* samples;
+} AudioForgeAudioBufferOutput;
+
+#define AUDIOFORGE_AUDIO_BUFFER_OUTPUT_INIT \
+    { (uint32_t)sizeof(AudioForgeAudioBufferOutput), 0, 0, 0, 0, 0, NULL }
+
+/* In-memory import/export contract for interleaved float samples. The caller
+ * owns all sample storage; these primitives never allocate or retain pointers.
+ * Supported sample rates are 8 kHz through 384 kHz and channel counts are
+ * limited to 32. A zero-frame buffer may have a NULL sample pointer. */
+static inline AudioForgeStatus audioforge_audio_buffer_validate(
+    const AudioForgeAudioBuffer* buffer) {
+    if (buffer == NULL || buffer->struct_size < sizeof(*buffer) ||
+        buffer->reserved != 0 || buffer->channel_count == 0 ||
+        buffer->channel_count > 32 || buffer->sample_rate < 8000 ||
+        buffer->sample_rate > 384000 ||
+        (buffer->frame_count != 0 && buffer->samples == NULL) ||
+        (buffer->frame_count != 0 &&
+         buffer->frame_count > UINT64_MAX / buffer->channel_count)) {
+        return AUDIOFORGE_STATUS_INVALID_ARGUMENT;
+    }
+    const uint64_t sample_count =
+        buffer->frame_count * buffer->channel_count;
+    if (sample_count > SIZE_MAX / sizeof(float)) {
+        return AUDIOFORGE_STATUS_INVALID_ARGUMENT;
+    }
+    return AUDIOFORGE_STATUS_OK;
+}
+
+static inline AudioForgeStatus audioforge_audio_buffer_import(
+    const float* samples,
+    uint64_t frame_count,
+    uint32_t channel_count,
+    uint32_t sample_rate,
+    AudioForgeAudioBuffer* out_buffer) {
+    if (out_buffer == NULL || out_buffer->struct_size < sizeof(*out_buffer)) {
+        return AUDIOFORGE_STATUS_INVALID_ARGUMENT;
+    }
+    if (frame_count != 0 && samples == NULL) {
+        return AUDIOFORGE_STATUS_INVALID_ARGUMENT;
+    }
+    AudioForgeAudioBuffer candidate = AUDIOFORGE_AUDIO_BUFFER_INIT;
+    candidate.channel_count = channel_count;
+    candidate.sample_rate = sample_rate;
+    candidate.frame_count = frame_count;
+    candidate.samples = samples;
+    if (audioforge_audio_buffer_validate(&candidate) != AUDIOFORGE_STATUS_OK) {
+        return AUDIOFORGE_STATUS_INVALID_ARGUMENT;
+    }
+    *out_buffer = candidate;
+    return AUDIOFORGE_STATUS_OK;
+}
+
+static inline AudioForgeStatus audioforge_audio_buffer_export(
+    const AudioForgeAudioBuffer* source,
+    AudioForgeAudioBufferOutput* destination) {
+    if (destination != NULL) {
+        destination->frame_count = 0;
+    }
+    if (audioforge_audio_buffer_validate(source) != AUDIOFORGE_STATUS_OK ||
+        destination == NULL ||
+        destination->struct_size < sizeof(*destination) ||
+        destination->reserved != 0 || destination->channel_count == 0 ||
+        destination->channel_count > 32 || destination->sample_rate < 8000 ||
+        destination->sample_rate > 384000 ||
+        destination->channel_count != source->channel_count ||
+        destination->sample_rate != source->sample_rate ||
+        destination->frame_capacity < source->frame_count ||
+        (source->frame_count != 0 && destination->samples == NULL) ||
+        source->frame_count * source->channel_count >
+            SIZE_MAX / sizeof(float)) {
+        return AUDIOFORGE_STATUS_INVALID_ARGUMENT;
+    }
+    const size_t byte_count = (size_t)(source->frame_count *
+                                       source->channel_count) * sizeof(float);
+    if (byte_count != 0) {
+        memcpy(destination->samples, source->samples, byte_count);
+    }
+    destination->frame_count = source->frame_count;
+    return AUDIOFORGE_STATUS_OK;
+}
 
 #ifdef __cplusplus
 }

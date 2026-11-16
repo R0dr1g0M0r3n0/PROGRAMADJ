@@ -196,5 +196,69 @@ int main(void) {
         }
     }
 
+    const float source_samples[6] = {0.25f, -0.5f, 0.75f, 1.0f, -1.0f, 0.0f};
+    AudioForgeAudioBuffer source = AUDIOFORGE_AUDIO_BUFFER_INIT;
+    if (!check_condition(audioforge_audio_buffer_import(
+                             source_samples, 3, 2, 48000, &source) ==
+                             AUDIOFORGE_STATUS_OK,
+                         "audio import accepts a valid interleaved buffer") ||
+        !check_condition(source.frame_count == 3 &&
+                             source.channel_count == 2 &&
+                             source.sample_rate == 48000,
+                         "audio import records frame format") ||
+        !check_condition(audioforge_audio_buffer_validate(&source) ==
+                             AUDIOFORGE_STATUS_OK,
+                         "valid audio buffer passes format validation")) {
+        return EXIT_FAILURE;
+    }
+
+    float round_trip_samples[6] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+    AudioForgeAudioBufferOutput destination =
+        AUDIOFORGE_AUDIO_BUFFER_OUTPUT_INIT;
+    destination.samples = round_trip_samples;
+    destination.frame_capacity = 3;
+    destination.channel_count = 2;
+    destination.sample_rate = 48000;
+    if (!check_condition(audioforge_audio_buffer_export(
+                             &source, &destination) == AUDIOFORGE_STATUS_OK,
+                         "audio export accepts matching capacity and format") ||
+        !check_condition(destination.frame_count == 3,
+                         "audio export reports copied frames") ||
+        !check_condition(memcmp(source_samples, round_trip_samples,
+                                sizeof(source_samples)) == 0,
+                         "synthetic samples round-trip exactly")) {
+        return EXIT_FAILURE;
+    }
+
+    float guarded_output[6] = {8.0f, 8.0f, 8.0f, 8.0f, 8.0f, 8.0f};
+    destination.samples = guarded_output;
+    destination.frame_capacity = 2;
+    destination.frame_count = 99;
+    if (!check_condition(audioforge_audio_buffer_export(
+                             &source, &destination) ==
+                             AUDIOFORGE_STATUS_INVALID_ARGUMENT,
+                         "audio export rejects insufficient capacity") ||
+        !check_condition(guarded_output[0] == 8.0f && guarded_output[5] == 8.0f,
+                         "failed export does not modify destination samples") ||
+        !check_condition(destination.frame_count == 0,
+                         "failed export clears destination frame count")) {
+        return EXIT_FAILURE;
+    }
+
+    AudioForgeAudioBuffer invalid = AUDIOFORGE_AUDIO_BUFFER_INIT;
+    if (!check_condition(audioforge_audio_buffer_import(
+                             source_samples, 3, 0, 48000, &invalid) ==
+                             AUDIOFORGE_STATUS_INVALID_ARGUMENT,
+                         "audio import rejects zero channels") ||
+        !check_condition(audioforge_audio_buffer_import(
+                             NULL, 3, 2, 48000, &invalid) ==
+                             AUDIOFORGE_STATUS_INVALID_ARGUMENT,
+                         "audio import rejects missing samples") ||
+        !check_condition(audioforge_audio_buffer_validate(NULL) ==
+                             AUDIOFORGE_STATUS_INVALID_ARGUMENT,
+                         "audio validation rejects a null buffer")) {
+        return EXIT_FAILURE;
+    }
+
     return 0;
 }
