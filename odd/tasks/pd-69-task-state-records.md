@@ -23,7 +23,7 @@ Project manifest history records project-level audit intent and evidence; it doe
 
 - [x] **T1 — Define task lifecycle contract** (`docs/task-state-machine.md`). Acceptance: explicit states/transitions/invariants, attempt bound, prerequisite and input-commit binding, execution evidence, append-only durable record authority, and fail-closed recovery boundaries. Checks: structural readback PASS; `git diff --check` PASS. Route: delegated direct.
 - [x] **T2 — Add versioned transition records and structural proof.** Implemented the version 1 record schema, representative fixture, and structural tests against T1; preserved append-only authority and documented fail-closed unknown-version handling. Checks: focused Python harness 7/7 PASS, both JSON files parse successfully, and `git diff --check` PASS. The configured CMake/CTest runner was not applicable because this slice contains no runtime C++ changes. Route: bounded inline continuation after delegated repository access was unavailable.
-- [ ] **T3 — Verify and record closure evidence.** Run applicable project checks, capture exact results and commit identity, update this document/mirror, and seek separate authorization before Jira closure.
+- [x] **T3 — Verify and record closure evidence.** Ran the applicable project checks, captured exact results and commit identities, and updated this document/mirror. Jira closure remains intentionally pending separate explicit authorization.
 
 ## Progress and evidence
 
@@ -32,4 +32,6 @@ Project manifest history records project-level audit intent and evidence; it doe
 - Runtime implementation/recovery and behavior were not verified; T1 is documentation-only, so no build/test was run.
 - T1 work-unit commit: `56a895160f2029c340bb2ce01faf5faf68aff507`.
 - T2 complete: commit `bb7a989` (`feat(task-state): add versioned transition record contract`) contains `docs/task-transition-record-v1.schema.json`, `TestFixtures/task_transition_records_v1.json`, and `Tests/Harness/test_task_state_records.py`. `.atl/` remains untouched.
-- Next step: T3 verification and closure evidence; Jira closure still requires separate explicit authorization.
+- T2/T3 documentation commit: `9e56bb3` (`docs(task-state): record T2 evidence`).
+- T3 verification: `cmake --build build` succeeded; the first plain `ctest --test-dir build --output-on-failure` invocation was not runnable because the generated Xcode configuration required `-C Debug`; corrected command `ctest --test-dir build -C Debug --output-on-failure` passed 4/4. The focused Python harness passed 7/7, both JSON files parsed successfully, and `git diff --check` passed.
+- Final local state: only pre-existing untracked `.atl/`; no remote delivery or Jira transition was performed. Jira closure requires separate explicit authorization.
