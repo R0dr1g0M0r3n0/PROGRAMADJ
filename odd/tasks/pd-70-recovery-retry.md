@@ -15,8 +15,17 @@ Implement the smallest runtime replay boundary that proves recovery from committ
 ## Work units
 
 - [x] **T1 — Replay committed transition records and enforce retry limits.** Added a header-only replay boundary and C++ tests for restart recovery, terminal states, unknown versions, and attempts 0–3. Focused executable and full Debug CTest pass.
-- [ ] **T2 — Verify and record closure evidence.** Run build/tests, capture exact results and commit identity, update this document/mirror, and request separate Jira authorization before closure.
+- [x] **T2 — Verify and record closure evidence.** Build target succeeded, focused executable passed, full Debug CTest passed 4/4, and `git diff --check` passed. Commit identity recorded below; Jira closure requires separate explicit authorization.
 
 ## Next step
 
-T1 implementation is complete. The first focused run exposed a test-fixture construction bug: `{}` created a JSON null instead of an empty array for `prerequisiteIds`; this was corrected with `Record::array()`. Next: commit the bounded slice, then capture final T2 evidence and request separate Jira authorization before closure.
+T1/T2 are complete. The first focused run exposed a test-fixture construction bug: `{}` created a JSON null instead of an empty array for `prerequisiteIds`; this was corrected with `Record::array()`.
+
+Verification evidence:
+
+- `cmake --build build --target AudioForgeProjectPersistenceTests -j2`: PASS.
+- `./build/Debug/AudioForgeProjectPersistenceTests`: PASS.
+- `ctest --test-dir build -C Debug --output-on-failure`: PASS, 4/4.
+- `git diff --check`: PASS.
+- Work-unit commit: `be8a8ec` (`feat(task-state): add recovery replay and retry limits`).
+- Jira closure remains pending separate explicit authorization.
