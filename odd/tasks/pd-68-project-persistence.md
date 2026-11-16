@@ -27,9 +27,9 @@ PD-67 defines the manifest shape and invariants, but the repository cannot yet s
 ## Tasks
 
 - [x] **T1 — Dependency and persistence boundary:** declare the native JSON dependency and add a Project persistence library/API without coupling it to DJLibrary.
-- [x] **T2 — Round-trip and validation:** implement load/save, semantic invariant checks, original-file preservation and atomic write/backup behavior with tests.
-- [ ] **T3 — Migration:** implement schema-version dispatch, current-version idempotence, future-version rejection and migration tests.
-- [ ] **T4 — Evidence and delivery:** run CMake/CTest and harness checks, record exact limitations, and deliver via reviewable PR slice(s).
+- [x] **T2 — Round-trip and validation:** implement load/save, semantic invariant checks, original-file preservation and atomic write/backup behavior with tests. Reopened after review reproduced that saving `project.json` from the project cwd accepted a symlinked derived asset that loading the same manifest rejected; fixed by validating against the same canonical directory for save/load. Also reject derived-output collisions through a symlinked original-source alias.
+- [x] **T3 — Migration:** implement schema-version dispatch, current-version idempotence, future-version rejection and migration tests.
+- [x] **T4 — Evidence and delivery:** run CMake/CTest and harness checks, record exact limitations, and deliver via reviewable PR slice(s). Reorganization and remote-state evidence are complete; no PRs were merged.
 
 ## Authorized scope
 
@@ -54,11 +54,29 @@ Repository source, tests, CMake metadata and this task document only. Installing
 ## Progress
 
 - Route: delegated direct; exploration confirmed the repository has no existing persistence module or native JSON parser.
-- Delivery strategy: ask-on-risk; split into stacked PRs if the accumulated diff exceeds the 400-line review budget.
+- Delivery strategy: `exception-ok` remains scoped to the two existing T1/T2 work units only. Current chain strategy is Feature Branch Chain: draft tracker [PR #12](https://github.com/R0dr1g0M0r3n0/PROGRAMADJ/pull/12), PR #9 based on `feature/pd-68-integration`, PR #10 based on PR #9, and PR #11 based on PR #10. No child PR targets `main`. Authorized remote operations were limited to this repo, these branches, and these PRs via the active HTTPS `gh` session.
 - TDD: Initial RED for T1/T2 was the missing `project_store.hpp`. Independent review then added regression tests; RED reproduced acceptance of an invalid digest (`invalid digest must be rejected`). GREEN implemented schema-driven v1 validation and filesystem safeguards.
 - Corrected defects: validate against the checked-in JSON Schema (types, enums, patterns/digests, required fields, and extra properties); validate normalized `derived/` paths and reject symlink escapes/source collisions; enforce audio-root and history input/output lineage; use `openat`/`O_NOFOLLOW`, exclusive random temporary creation, `fsync`, and atomic `renameat`; reject symlink/non-regular targets and preserve the previous manifest as `.bak`.
 - Failure tests: pre-create the former `.tmp.0` symlink and verify its target is unchanged; use `RLIMIT_FSIZE=0` to force a real temporary-write failure and verify manifest bytes remain identical; reject a directory and symlink destination without modifying their targets.
 - Verification: `cmake -S . -B build -G Xcode -DCMAKE_OSX_ARCHITECTURES=arm64` — passed; `cmake --build build --config Debug` — passed; `ctest --test-dir build -C Debug --output-on-failure` — 4/4 passed; `python3 -m unittest discover -s Tests/Harness -p 'test_*.py'` — 1 test passed; `git diff --check` — passed.
 - T1/T2 work-unit commit: `1230ca6263816065f9bdd5e823f7760536aba6dc` (`feat(project-persistence): add validated manifest storage`).
 - Independent-review correction commit: `29a5b5d6e244bc485eb76191def062cab81760ac` (`fix(project-persistence): validate schema and secure writes`).
-- Next: implement T3 migration dispatch and tests, then complete T4 evidence and delivery.
+- Correction commits pushed to PR #11: `d8a749c` (`fix(project-persistence): align save and load path validation`) and `010d757` (`docs(odd): record PD-68 correction evidence`). The independent verifier passed the full checks for both correction commits. No merge, rebase, or release was performed.
+- Correction evidence: the focused test reproduced that `save_manifest("project.json", manifest)` accepted a symlinked derived asset while load rejected it, caused by save validating against an empty parent path instead of the canonical project directory. Save/load now share canonical directory validation; symlinked source aliases that collide with derived outputs are rejected. Focused test passed 1/1; CMake configure/build passed; CTest 4/4 and Python harness 1/1 passed.
+- T3 work-unit commit: `392cb00fda3547a51782927162e4ac411392c50a` (`feat(project-persistence): dispatch manifest schema versions`, 117 authored lines). `migrate_manifest` returns an unchanged validated v1 copy, rejects unsupported older/future/malformed versions, and `load_manifest` uses the dispatcher. Direct and file-load regression tests cover rejection without modifying manifest, backup, source audio, or related files. No older on-disk contract exists in PD-67, so no legacy transform is invented. Independent verification requested file-load regression proof, which was added and rechecked. CMake/Debug build passed, CTest passed 4/4, Python harness passed 1/1, and `git diff --check` passed before commit.
+- Final local `git diff --check` passed. `.atl/` remains untracked and untouched.
+- Delivery sizing: PR #9 has 554 changed lines and PR #10 has 533; both retain the maintainer-accepted `size:exception`. PR #11 has no exception; its final exact count is recorded in the PR body after the final push.
+
+
+## PR Delivery Slices
+
+| Position | Branch / commit boundary | Base | PR | Authored changed lines | Scope |
+|---|---|---|---|---:|---|
+| Tracker | `feature/pd-68-integration`: `63cac7bef8f4700cfe60df005092429b38ca11dd..68885b60edba84d19e484764ad985a962ef24f7a` | `main` | [#12](https://github.com/R0dr1g0M0r3n0/PROGRAMADJ/pull/12) (draft) | 61 | Existing 61-line task document only; exact blob copied from PR #9 initial head |
+| 1 of 3 | `feature/pd-68-01-manifest`: `main..1230ca6263816065f9bdd5e823f7760536aba6dc` | `feature/pd-68-integration` | [#9](https://github.com/R0dr1g0M0r3n0/PROGRAMADJ/pull/9) | 554 — accepted `size:exception` | T1/T2 validated v1 persistence boundary and round-trip; existing task document is also visible in this PR diff |
+| 2 of 3 | `feature/pd-68-02-hardening`: `1230ca6263816065f9bdd5e823f7760536aba6dc..2bf113de3c44b751f6d0efbdce503efd0cdc887a` | `feature/pd-68-01-manifest` | [#10](https://github.com/R0dr1g0M0r3n0/PROGRAMADJ/pull/10) | 533 — accepted `size:exception` | Schema validation, path/lineage checks, secure atomic write corrections |
+| 3 of 3 | `feature/pd-68-03-migration`: `2bf113de3c44b751f6d0efbdce503efd0cdc887a..current branch head` (includes correction and evidence commits) | `feature/pd-68-02-hardening` | [#11](https://github.com/R0dr1g0M0r3n0/PROGRAMADJ/pull/11) | See PR #11 body for final exact base-to-head count; no `size:exception` requested | Version dispatch, file-load rejection preservation, correction and delivery evidence |
+
+Dependency order: tracker PR #12 → PR #9 → PR #10 → PR #11. PR #12 is a draft/no-merge document-only tracker based on exact current `main` `63cac7b`. PR #9 was retargeted to the tracker branch without merging or rewriting its head; PR #10 remains based on PR #9's branch, and PR #11 remains based on PR #10's branch. The existing task document appears redundantly in PR #9's three-dot diff, as expected; it is byte-identical to the tracker copy.
+
+T4 is complete after remote-state verification: PRs #9, #10, and #11 are OPEN and reported MERGEABLE with expected branch bases and heads; tracker PR #12 is OPEN, DRAFT, and MERGEABLE. `main` remains at `63cac7bef8f4700cfe60df005092429b38ca11dd`; tracker, PR #9, and PR #10 remote heads match their intended commits (`68885b6`, `1230ca6`, and `2bf113d`); PR #11 contains correction commit `010d757`, and its published head matches the local branch. Current confirmed counts: tracker 61 additions; PR #9 554 additions; PR #10 487 additions + 46 deletions (533); PR #11's final exact count is maintained in its PR body to avoid self-referential count churn from this task-document update. `git diff --check` passed. No CI status is claimed. No merge, rebase, force push, release, Jira operation, or `.atl/` change was performed.

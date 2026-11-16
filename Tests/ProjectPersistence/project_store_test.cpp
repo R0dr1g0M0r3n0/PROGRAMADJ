@@ -121,7 +121,120 @@ void test_round_trip_and_references() {
     fs::create_symlink(outside_file, project_directory / "derived/example-v1.wav");
     require(!audioforge::project::validate_manifest(source, project_directory).is_valid(),
             "symlink escapes in derived asset tree must be rejected");
+    fs::remove(project_directory / "derived/example-v1.wav");
+    write_text(project_directory / "derived/example-v1.wav", "derived output");
+    fs::create_symlink(project_directory / "derived/example-v1.wav", project_directory / "original-alias.wav");
+    auto alias_collision = source;
+    alias_collision["sourceAssets"][0]["originalPath"] = (project_directory / "original-alias.wav").string();
+    require(!audioforge::project::validate_manifest(alias_collision, project_directory).is_valid(),
+            "derived output must not alias an original source through a symlink");
+    fs::remove(project_directory / "derived/example-v1.wav");
+    fs::create_symlink(outside_file, project_directory / "derived/example-v1.wav");
+    const auto prior_directory = fs::current_path();
+    fs::current_path(project_directory);
+    bool relative_save_rejected = false;
+    bool relative_save_succeeded = false;
+    bool relative_load_rejected = false;
+    try {
+        audioforge::project::save_manifest("project.json", source);
+    } catch (const std::exception&) {
+        relative_save_rejected = true;
+    }
+    relative_save_succeeded = !relative_save_rejected;
+    if (relative_save_succeeded) {
+        try {
+            (void)audioforge::project::load_manifest("project.json");
+        } catch (const std::exception&) {
+            relative_load_rejected = true;
+        }
+    }
+    fs::current_path(prior_directory);
+    require(relative_save_rejected,
+            relative_save_succeeded && relative_load_rejected
+                ? "bare-filename save accepted a symlinked derived asset that load then rejected"
+                : "saving a bare filename from the project directory must reject a symlinked derived asset");
+    require(!fs::exists(project_directory / "project.json"),
+            "rejected relative-path save must not create a manifest");
     fs::remove_all(project_directory);
+    fs::remove_all(directory);
+}
+
+void test_migration_dispatch() {
+    const auto current = fixture();
+    const auto first_pass = audioforge::project::migrate_manifest(current);
+    const auto second_pass = audioforge::project::migrate_manifest(first_pass);
+    require(first_pass == current && second_pass == current,
+            "current v1 manifests must migrate idempotently without changing fields");
+
+    auto future = current;
+    future["schemaVersion"] = 2;
+    bool future_rejected = false;
+    try {
+        (void)audioforge::project::migrate_manifest(future);
+    } catch (const std::exception&) {
+        future_rejected = true;
+    }
+    require(future_rejected, "future manifest versions must be rejected");
+    require(future["schemaVersion"] == 2, "future manifest input must remain unchanged");
+
+    auto older = current;
+    older["schemaVersion"] = 0;
+    bool older_rejected = false;
+    try {
+        (void)audioforge::project::migrate_manifest(older);
+    } catch (const std::exception&) {
+        older_rejected = true;
+    }
+    require(older_rejected, "older versions without a defined migration contract must be rejected");
+    require(older["schemaVersion"] == 0, "unsupported older manifest input must remain unchanged");
+
+    auto malformed = current;
+    malformed["schemaVersion"] = "1";
+    bool malformed_rejected = false;
+    try {
+        (void)audioforge::project::migrate_manifest(malformed);
+    } catch (const std::exception&) {
+        malformed_rejected = true;
+    }
+    require(malformed_rejected, "non-integer schema versions must be rejected");
+
+    const auto directory = fs::temp_directory_path() / "audioforge-project-persistence-migration-dispatch";
+    fs::remove_all(directory);
+    fs::create_directories(directory);
+    const auto manifest_path = directory / "project.json";
+    const auto backup_path = fs::path(manifest_path.string() + ".bak");
+    const auto source_path = directory / "original.wav";
+    const auto related_path = directory / "related.txt";
+    const std::string backup_bytes = "previous manifest bytes";
+    const std::string source_bytes("original audio\0bytes", 20);
+    const std::string related_bytes = "related project data";
+    write_text(backup_path, backup_bytes);
+    write_text(source_path, source_bytes);
+    write_text(related_path, related_bytes);
+
+    const auto assert_file_rejection_preserves_state = [&](const Manifest& candidate, const std::string& label) {
+        const auto original_bytes = candidate.dump(2) + "\n";
+        write_text(manifest_path, original_bytes);
+        bool rejected = false;
+        try {
+            (void)audioforge::project::load_manifest(manifest_path);
+        } catch (const std::exception&) {
+            rejected = true;
+        }
+        require(rejected, label + " schemaVersion must be rejected by file loading");
+        require(read_text(manifest_path) == original_bytes,
+                label + " rejection must preserve the original manifest bytes");
+        require(read_text(backup_path) == backup_bytes,
+                label + " rejection must preserve the backup bytes");
+        require(read_text(source_path) == source_bytes,
+                label + " rejection must preserve related source audio");
+        require(read_text(related_path) == related_bytes,
+                label + " rejection must preserve related project data");
+    };
+
+    assert_file_rejection_preserves_state(future, "future");
+    assert_file_rejection_preserves_state(older, "older");
+    assert_file_rejection_preserves_state(malformed, "malformed");
     fs::remove_all(directory);
 }
 
@@ -219,6 +332,7 @@ void test_original_files_and_atomic_backup() {
 int main() {
     try {
         test_round_trip_and_references();
+        test_migration_dispatch();
         test_original_files_and_atomic_backup();
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

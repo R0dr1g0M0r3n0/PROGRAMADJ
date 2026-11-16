@@ -390,8 +390,16 @@ ValidationResult validate_manifest(const Manifest& manifest, const std::filesyst
         for (const auto& source : manifest["sourceAssets"]) {
             const auto original_path = std::filesystem::path(text(source, "originalPath"));
             const auto source_path = (original_path.is_absolute() ? original_path : project_directory / original_path).lexically_normal();
-            if (!project_directory.empty() && source_path == output_path)
-                error(result, "derivedAssets", "generated asset cannot overwrite an original source file");
+            if (!project_directory.empty()) {
+                std::error_code source_error;
+                std::error_code output_error;
+                const auto resolved_source = std::filesystem::weakly_canonical(source_path, source_error);
+                const auto resolved_output = std::filesystem::weakly_canonical(output_path, output_error);
+                if (source_error || output_error)
+                    error(result, "derivedAssets", "source and output paths cannot be resolved safely");
+                else if (resolved_source == resolved_output)
+                    error(result, "derivedAssets", "generated asset cannot overwrite an original source file");
+            }
         }
         if (!contains(manifest, "profiles", text(asset, "profileId")))
             error(result, "derivedAssets", "profileId must identify a processing profile");
@@ -552,6 +560,30 @@ ValidationResult validate_manifest(const Manifest& manifest, const std::filesyst
     return result;
 }
 
+Manifest migrate_manifest(const Manifest& manifest) {
+    if (!manifest.is_object() || !manifest.contains("schemaVersion") ||
+        !manifest["schemaVersion"].is_number_integer()) {
+        throw std::runtime_error("project manifest must declare an integer schemaVersion");
+    }
+
+    if (manifest["schemaVersion"].is_number_unsigned()) {
+        const auto version = manifest["schemaVersion"].get<std::uint64_t>();
+        if (version > 1) throw std::runtime_error("unsupported future project manifest version");
+        if (version < 1) throw std::runtime_error("unsupported older project manifest version");
+    } else {
+        const auto version = manifest["schemaVersion"].get<std::int64_t>();
+        if (version > 1) throw std::runtime_error("unsupported future project manifest version");
+        if (version < 1) throw std::runtime_error("unsupported older project manifest version");
+    }
+
+    const auto validation = validate_manifest(manifest);
+    if (!validation.is_valid())
+        throw std::runtime_error("invalid v1 project manifest: " + validation.errors.front());
+
+    // Version 1 is the current contract. No older on-disk contract is defined yet.
+    return manifest;
+}
+
 Manifest load_manifest(const std::filesystem::path& path) {
     if (path.empty() || !path.has_filename()) throw std::runtime_error("manifest path must name a file");
     const auto directory_path = std::filesystem::canonical(
@@ -566,17 +598,18 @@ Manifest load_manifest(const std::filesystem::path& path) {
     if (input.get() < 0) throw std::runtime_error(io_error("unable to open project manifest without following symlinks"));
     const auto bytes = read_all(input.get());
     const auto manifest = Manifest::parse(bytes);
-    const auto validation = validate_manifest(manifest, directory_path);
+    auto migrated = migrate_manifest(manifest);
+    const auto validation = validate_manifest(migrated, directory_path);
     if (!validation.is_valid()) throw std::runtime_error("invalid project manifest: " + validation.errors.front());
-    return manifest;
+    return migrated;
 }
 
 void save_manifest(const std::filesystem::path& path, const Manifest& manifest) {
-    const auto validation = validate_manifest(manifest, path.parent_path());
-    if (!validation.is_valid()) throw std::runtime_error("invalid project manifest: " + validation.errors.front());
     if (path.empty() || !path.has_filename()) throw std::runtime_error("manifest path must name a file");
     const auto directory_path = std::filesystem::canonical(
         path.parent_path().empty() ? std::filesystem::current_path() : path.parent_path());
+    const auto validation = validate_manifest(manifest, directory_path);
+    if (!validation.is_valid()) throw std::runtime_error("invalid project manifest: " + validation.errors.front());
     ScopedDescriptor directory(::open(directory_path.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
     if (directory.get() < 0) throw std::runtime_error(io_error("unable to open project directory"));
     const auto filename = path.filename().string();
