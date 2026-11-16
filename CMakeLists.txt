@@ -60,6 +60,12 @@ if(BUILD_TESTING)
     target_link_libraries(AudioForgeEngineTests PRIVATE AudioForgeEngine)
     add_test(NAME AudioForgeEngineTests COMMAND AudioForgeEngineTests)
 
+    add_executable(AudioForgeDSPTests
+        Tests/DSP/gain_quality_safety_test.cpp
+    )
+    target_link_libraries(AudioForgeDSPTests PRIVATE AudioForgeEngine)
+    add_test(NAME AudioForgeDSPTests COMMAND AudioForgeDSPTests)
+
     add_executable(AudioForgeBridgeTests
         Tests/Bridge/bridge_smoke_test.mm
     )

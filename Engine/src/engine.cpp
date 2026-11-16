@@ -1,5 +1,6 @@
 #include "audioforge/engine.h"
 
+#include <cmath>
 #include <cstring>
 #include <limits>
 #include <new>
@@ -159,6 +160,33 @@ extern "C" AudioForgeStatus audioforge_time_transform_map_source_frame(
         return AUDIOFORGE_STATUS_INVALID_ARGUMENT;
     }
     *output_frame = transform->output_start_frame + output_offset;
+    return AUDIOFORGE_STATUS_OK;
+}
+
+extern "C" AudioForgeStatus audioforge_gain_apply(
+    const AudioForgeAudioBuffer* input,
+    float gain,
+    AudioForgeAudioBufferOutput* output) {
+    if (output != nullptr) {
+        output->frame_count = 0;
+    }
+
+    if (audioforge_audio_buffer_validate(input) != AUDIOFORGE_STATUS_OK ||
+        output == nullptr || output->struct_size < sizeof(*output) ||
+        output->reserved != 0 || !std::isfinite(gain) ||
+        output->channel_count != input->channel_count ||
+        output->sample_rate != input->sample_rate ||
+        output->frame_capacity < input->frame_count ||
+        (input->frame_count != 0 && output->samples == nullptr)) {
+        return AUDIOFORGE_STATUS_INVALID_ARGUMENT;
+    }
+
+    const size_t sample_count = static_cast<size_t>(
+        input->frame_count * input->channel_count);
+    for (size_t index = 0; index < sample_count; ++index) {
+        output->samples[index] = input->samples[index] * gain;
+    }
+    output->frame_count = input->frame_count;
     return AUDIOFORGE_STATUS_OK;
 }
 

@@ -278,6 +278,11 @@ static inline AudioForgeStatus audioforge_audio_buffer_export(
     return AUDIOFORGE_STATUS_OK;
 }
 
+AudioForgeStatus audioforge_gain_apply(
+    const AudioForgeAudioBuffer* input,
+    float gain,
+    AudioForgeAudioBufferOutput* output);
+
 #ifdef __cplusplus
 }
 #endif
