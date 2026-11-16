@@ -1,4 +1,5 @@
 #include "project_store.hpp"
+#include "task_state.hpp"
 
 #include <filesystem>
 #include <fstream>
@@ -327,6 +328,84 @@ void test_original_files_and_atomic_backup() {
     fs::remove_all(directory);
 }
 
+audioforge::task::Record task_record(const std::string& task_id, int sequence, const std::string& from,
+                                     const std::string& to, const std::string& event, int attempt) {
+    return {{"schemaVersion", 1}, {"taskId", task_id}, {"sequence", sequence},
+            {"fromState", from.empty() ? audioforge::task::Record(nullptr) : audioforge::task::Record(from)},
+            {"toState", to}, {"event", event}, {"attempt", attempt},
+            {"prerequisiteIds", audioforge::task::Record::array()}};
+}
+
+void add_evidence(audioforge::task::Record& record, const std::string& outcome) {
+    record["executionEvidence"] = {{"command", {"audioforge-task", "execute"}},
+                                    {"result", {{"outcome", outcome}, {"detail", "recorded result"}}}};
+}
+
+void test_task_state_recovery_and_retry_limit() {
+    audioforge::task::Record records = {
+        task_record("task-recovery", 1, "", "pending", "created", 0),
+        task_record("task-recovery", 2, "pending", "running", "attempt_started", 0),
+    };
+    records[1]["inputCommit"] = std::string(40, 'a');
+    const auto recovered = audioforge::task::replay(records);
+    require(recovered.state == "running" && recovered.attempt == 0 && recovered.sequence == 2,
+            "replaying committed records must recover the in-flight attempt");
+
+    auto completed = records;
+    completed.push_back(task_record("task-recovery", 3, "running", "failed", "attempt_failed", 0));
+    add_evidence(completed.back(), "failure");
+    completed.push_back(task_record("task-recovery", 4, "failed", "running", "attempt_started", 1));
+    completed.back()["inputCommit"] = std::string(40, 'b');
+    completed.push_back(task_record("task-recovery", 5, "running", "succeeded", "attempt_succeeded", 1));
+    add_evidence(completed.back(), "success");
+    const auto succeeded = audioforge::task::replay(completed);
+    require(succeeded.state == "succeeded" && succeeded.attempt == 1,
+            "replayed corrections must reach the committed terminal success");
+
+    audioforge::task::Record exhausted = {
+        task_record("task-exhausted", 1, "", "pending", "created", 0),
+        task_record("task-exhausted", 2, "pending", "running", "attempt_started", 0),
+    };
+    exhausted[1]["inputCommit"] = std::string(40, 'a');
+    for (int attempt = 0; attempt <= 3; ++attempt) {
+        exhausted.push_back(task_record("task-exhausted", static_cast<int>(exhausted.size() + 1),
+                                        "running", "failed", "attempt_failed", attempt));
+        add_evidence(exhausted.back(), "failure");
+        if (attempt < 3) {
+            exhausted.push_back(task_record("task-exhausted", static_cast<int>(exhausted.size() + 1),
+                                            "failed", "running", "attempt_started", attempt + 1));
+            exhausted.back()["inputCommit"] = std::string(40, static_cast<char>('b' + attempt));
+        }
+    }
+    exhausted.push_back(task_record("task-exhausted", static_cast<int>(exhausted.size() + 1),
+                                    "failed", "blocked", "attempts_exhausted", 3));
+    const auto blocked = audioforge::task::replay(exhausted);
+    require(blocked.state == "blocked" && blocked.attempt == 3,
+            "three correction failures must fail closed as blocked");
+
+    auto invalid = exhausted;
+    invalid.push_back(task_record("task-exhausted", static_cast<int>(invalid.size() + 1),
+                                  "blocked", "running", "attempt_started", 4));
+    invalid.back()["inputCommit"] = std::string(40, 'e');
+    bool rejected = false;
+    try {
+        (void)audioforge::task::replay(invalid);
+    } catch (const std::exception&) {
+        rejected = true;
+    }
+    require(rejected, "a fourth correction attempt must be rejected");
+
+    auto unknown_version = records;
+    unknown_version[0]["schemaVersion"] = 2;
+    rejected = false;
+    try {
+        (void)audioforge::task::replay(unknown_version);
+    } catch (const std::exception&) {
+        rejected = true;
+    }
+    require(rejected, "unknown transition-record versions must fail closed");
+}
+
 }  // namespace
 
 int main() {
@@ -334,6 +413,7 @@ int main() {
         test_round_trip_and_references();
         test_migration_dispatch();
         test_original_files_and_atomic_backup();
+        test_task_state_recovery_and_retry_limit();
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         return 1;
