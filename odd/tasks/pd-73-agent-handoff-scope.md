@@ -44,3 +44,4 @@ Define a repository-local agent handoff contract that prevents unsafe acceptance
 - `git diff --check`: PASS.
 - Independent verification: delegated verifier reproduced all three checks with no failures or skips.
 - `.atl/` and original audio/DJ library paths were untouched.
+- Work-unit commit: `e1c6cf3` (`feat(contracts): define agent handoff scope policy`).
