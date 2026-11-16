@@ -39,3 +39,9 @@ The closure record must include:
 6. Any limitation, unresolved risk, or requested follow-up.
 
 Only after this record is complete may the task be marked accepted.
+
+## Independent acceptance
+
+Independent acceptance is separate from implementation. The reviewer receives the immutable baseline, the frozen authorized-file list, and the acceptance tests before inspecting the result. The reviewer must compare the candidate against that immutable baseline and record a reviewer boundary; a moving worktree or an agent-authored acceptance-test change must not be accepted.
+
+The reviewer must reject a candidate when the implementation changes acceptance tests, omits required evidence, or claims success from a failed, unavailable, timed-out, or skipped check. The reviewer may report the exact limitation, but may not rewrite the acceptance contract to make the candidate pass.
