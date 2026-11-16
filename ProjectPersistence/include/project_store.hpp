@@ -18,6 +18,7 @@ struct ValidationResult {
 
 [[nodiscard]] ValidationResult validate_manifest(
     const Manifest& manifest, const std::filesystem::path& project_directory = {});
+[[nodiscard]] Manifest migrate_manifest(const Manifest& manifest);
 [[nodiscard]] Manifest load_manifest(const std::filesystem::path& path);
 void save_manifest(const std::filesystem::path& path, const Manifest& manifest);
 
