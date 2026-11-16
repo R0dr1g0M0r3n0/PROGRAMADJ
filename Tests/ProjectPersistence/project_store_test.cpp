@@ -387,6 +387,63 @@ void test_asset_identity_resolution() {
     fs::remove_all(directory);
 }
 
+void test_missing_files_and_source_preservation() {
+    const auto directory = fs::temp_directory_path() / "audioforge-project-persistence-missing-files";
+    fs::remove_all(directory);
+    fs::create_directories(directory);
+    const auto manifest_path = directory / "project.json";
+    const auto missing_audio = directory / "missing-audio.wav";
+    const auto missing_library = directory / "missing-library.xml";
+    auto missing_manifest = fixture();
+    missing_manifest["sourceAssets"][0]["originalPath"] = missing_audio.string();
+    missing_manifest["sourceAssets"][1]["originalPath"] = missing_library.string();
+    audioforge::project::save_manifest(manifest_path, missing_manifest);
+    require(!fs::exists(missing_audio) && !fs::exists(missing_library),
+            "saving references to missing external files must not create replacements");
+    const auto reopened = audioforge::project::load_manifest(manifest_path);
+    require(reopened == missing_manifest,
+            "reopening a manifest with missing external files must preserve its references");
+    const auto source_id = missing_manifest["sourceAssets"][0]["id"].get<std::string>();
+    const auto library_id = missing_manifest["sourceAssets"][1]["id"].get<std::string>();
+    const auto source_link = audioforge::project::resolve_asset_link(reopened, source_id);
+    const auto library_link = audioforge::project::resolve_asset_link(reopened, library_id);
+    require(source_link.has_value() && library_link.has_value(),
+            "missing external files must retain recoverable logical asset identity");
+    require(source_link->original_path == missing_audio.string() &&
+                library_link->original_path == missing_library.string(),
+            "missing external file paths must round-trip exactly");
+
+    const auto audio_path = directory / "original.wav";
+    const auto library_path = directory / "original.xml";
+    const std::string audio_bytes("source-audio\0bytes", 18);
+    const std::string library_bytes("dj-library\0bytes", 16);
+    write_text(audio_path, audio_bytes);
+    write_text(library_path, library_bytes);
+    auto preserved_manifest = fixture();
+    preserved_manifest["sourceAssets"][0]["originalPath"] = audio_path.string();
+    preserved_manifest["sourceAssets"][1]["originalPath"] = library_path.string();
+    audioforge::project::save_manifest(manifest_path, preserved_manifest);
+    require(audioforge::project::load_manifest(manifest_path) == preserved_manifest,
+            "reopening a manifest must preserve source and DJ library references");
+    require(read_text(audio_path) == audio_bytes && read_text(library_path) == library_bytes,
+            "successful manifest save must preserve source audio and DJ library bytes");
+    const auto before_failed_save_audio = read_text(audio_path);
+    const auto before_failed_save_library = read_text(library_path);
+    auto invalid = preserved_manifest;
+    invalid["tracks"][0]["sourceAssetId"] = "missing";
+    bool rejected = false;
+    try {
+        audioforge::project::save_manifest(manifest_path, invalid);
+    } catch (const std::exception&) {
+        rejected = true;
+    }
+    require(rejected, "invalid manifest save must be rejected");
+    require(read_text(audio_path) == before_failed_save_audio &&
+                read_text(library_path) == before_failed_save_library,
+            "rejected manifest save must preserve source audio and DJ library bytes");
+    fs::remove_all(directory);
+}
+
 audioforge::task::Record task_record(const std::string& task_id, int sequence, const std::string& from,
                                      const std::string& to, const std::string& event, int attempt) {
     return {{"schemaVersion", 1}, {"taskId", task_id}, {"sequence", sequence},
@@ -473,6 +530,7 @@ int main() {
         test_migration_dispatch();
         test_original_files_and_atomic_backup();
         test_asset_identity_resolution();
+        test_missing_files_and_source_preservation();
         test_task_state_recovery_and_retry_limit();
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
