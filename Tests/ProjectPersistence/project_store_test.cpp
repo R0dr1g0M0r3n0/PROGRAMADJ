@@ -2,8 +2,10 @@
 #include "task_state.hpp"
 
 #include <filesystem>
+#include <cstdint>
 #include <fstream>
 #include <iostream>
+#include <optional>
 #include <stdexcept>
 #include <string>
 
@@ -328,6 +330,63 @@ void test_original_files_and_atomic_backup() {
     fs::remove_all(directory);
 }
 
+void test_asset_identity_resolution() {
+    const auto manifest = fixture();
+    const auto source_id = manifest["sourceAssets"][0]["id"].get<std::string>();
+    const auto derived_id = manifest["derivedAssets"][0]["id"].get<std::string>();
+
+    const auto source = audioforge::project::resolve_asset_link(manifest, source_id);
+    require(source.has_value(), "source asset must resolve by stable ID");
+    require(source->id == source_id && source->original_path == "/synthetic/audio/example.wav",
+            "source resolution must preserve identity and originalPath");
+    require(source->sha256 == manifest["sourceAssets"][0]["sha256"].get<std::string>(),
+            "source resolution must preserve sha256");
+    require(source->byte_size == std::optional<std::uint64_t>(4096),
+            "source resolution must preserve optional byteSize");
+    require(source->root_source_asset_id == source_id && !source->parent_asset_id.has_value(),
+            "source resolution must identify itself as the lineage root");
+    require(!source->relative_path.has_value(), "source resolution must not invent a derived path");
+
+    const auto derived = audioforge::project::resolve_asset_link(manifest, derived_id);
+    require(derived.has_value(), "derived asset must resolve by stable ID");
+    require(derived->id == derived_id && derived->sha256 == manifest["derivedAssets"][0]["sha256"].get<std::string>(),
+            "derived resolution must preserve its own identity and sha256");
+    require(derived->original_path == source->original_path && derived->byte_size == source->byte_size,
+            "derived resolution must preserve the root source path and optional byteSize");
+    require(derived->root_source_asset_id == source_id &&
+                derived->parent_asset_id == std::optional<std::string>(source_id),
+            "derived resolution must preserve root and parent lineage");
+    require(derived->relative_path == std::optional<std::string>("derived/example-v1.wav"),
+            "derived resolution must preserve its relative path");
+
+    require(!audioforge::project::resolve_asset_link(manifest, "missing-asset").has_value(),
+            "unknown asset IDs must fail explicitly");
+
+    auto invalid_lineage = manifest;
+    invalid_lineage["derivedAssets"][0]["parentAssetId"] = manifest["sourceAssets"][1]["id"];
+    require(!audioforge::project::resolve_asset_link(invalid_lineage, derived_id).has_value(),
+            "invalid derived lineage must not resolve");
+
+    const auto directory = fs::temp_directory_path() / "audioforge-project-persistence-asset-resolution";
+    fs::remove_all(directory);
+    fs::create_directories(directory);
+    const auto original_path = directory / "original.wav";
+    const std::string original_bytes("asset-source-bytes\0preserved", 28);
+    write_text(original_path, original_bytes);
+    auto manifest_with_file = manifest;
+    manifest_with_file["sourceAssets"][0]["originalPath"] = original_path.string();
+    const auto before = read_text(original_path);
+    require(audioforge::project::resolve_asset_link(manifest_with_file, source_id).has_value(),
+            "source asset with a real path must resolve without media access");
+    require(read_text(original_path) == before,
+            "asset resolution must not modify source bytes");
+    manifest_with_file["sourceAssets"][0].erase("byteSize");
+    const auto without_size = audioforge::project::resolve_asset_link(manifest_with_file, source_id);
+    require(without_size.has_value() && !without_size->byte_size.has_value(),
+            "source resolution must preserve an omitted optional byteSize");
+    fs::remove_all(directory);
+}
+
 audioforge::task::Record task_record(const std::string& task_id, int sequence, const std::string& from,
                                      const std::string& to, const std::string& event, int attempt) {
     return {{"schemaVersion", 1}, {"taskId", task_id}, {"sequence", sequence},
@@ -413,6 +472,7 @@ int main() {
         test_round_trip_and_references();
         test_migration_dispatch();
         test_original_files_and_atomic_backup();
+        test_asset_identity_resolution();
         test_task_state_recovery_and_retry_limit();
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

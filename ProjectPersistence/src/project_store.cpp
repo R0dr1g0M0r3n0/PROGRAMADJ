@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <cerrno>
 #include <cstring>
+#include <cstdint>
 #include <fstream>
 #include <iterator>
 #include <random>
@@ -163,6 +164,22 @@ bool contains(const Manifest& manifest, const std::string& array, const std::str
     if (!manifest.contains(array) || !manifest[array].is_array()) return false;
     for (const auto& record : manifest[array]) if (text(record, "id") == id) return true;
     return false;
+}
+
+const Manifest* asset_record(const Manifest& manifest, const std::string& array,
+                             const std::string& id) {
+    if (!manifest.contains(array) || !manifest[array].is_array()) return nullptr;
+    for (const auto& record : manifest[array])
+        if (text(record, "id") == id) return &record;
+    return nullptr;
+}
+
+std::optional<std::uint64_t> optional_byte_size(const Manifest& record) {
+    if (!record.contains("byteSize")) return std::nullopt;
+    if (record["byteSize"].is_number_unsigned()) return record["byteSize"].get<std::uint64_t>();
+    if (record["byteSize"].is_number_integer() && record["byteSize"].get<std::int64_t>() >= 0)
+        return record["byteSize"].get<std::uint64_t>();
+    return std::nullopt;
 }
 
 std::string subject_array(const std::string& kind) {
@@ -558,6 +575,41 @@ ValidationResult validate_manifest(const Manifest& manifest, const std::filesyst
     for (const auto& [subject, count] : terminals)
         if (count > 1) error(result, "validityClaims", "subject has multiple terminal claims: " + subject);
     return result;
+}
+
+std::optional<AssetLink> resolve_asset_link(const Manifest& manifest, const std::string& asset_id) {
+    if (asset_id.empty() || !validate_manifest(manifest).is_valid()) return std::nullopt;
+
+    const auto* source = asset_record(manifest, "sourceAssets", asset_id);
+    const auto* derived = asset_record(manifest, "derivedAssets", asset_id);
+    if (source == nullptr && derived == nullptr) return std::nullopt;
+
+    AssetLink link{
+        .id = asset_id,
+        .original_path = {},
+        .sha256 = {},
+        .byte_size = std::nullopt,
+        .root_source_asset_id = {},
+        .parent_asset_id = std::nullopt,
+        .relative_path = std::nullopt,
+    };
+    if (source != nullptr) {
+        link.original_path = text(*source, "originalPath");
+        link.sha256 = text(*source, "sha256");
+        link.byte_size = optional_byte_size(*source);
+        link.root_source_asset_id = asset_id;
+        return link;
+    }
+
+    link.sha256 = text(*derived, "sha256");
+    link.root_source_asset_id = text(*derived, "rootSourceAssetId");
+    link.parent_asset_id = text(*derived, "parentAssetId");
+    link.relative_path = text(*derived, "relativePath");
+    const auto* root = asset_record(manifest, "sourceAssets", link.root_source_asset_id);
+    if (root == nullptr) return std::nullopt;
+    link.original_path = text(*root, "originalPath");
+    link.byte_size = optional_byte_size(*root);
+    return link;
 }
 
 Manifest migrate_manifest(const Manifest& manifest) {
