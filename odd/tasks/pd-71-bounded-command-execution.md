@@ -26,5 +26,5 @@ Verification evidence:
 - Full Python harness discovery passed **12/12**.
 - `python3 Harness/run_checks.py --build-dir build --config Debug --timeout-seconds 30`: PASS, CTest **4/4**, exit code `0`, `skipped=false`, `timed_out=false`, `regression=false`.
 - `git diff --check`: PASS.
-- Work-unit commit: to be recorded after the bounded three-file commit.
-- Jira closure remains pending until verification is committed and read back.
+- Work-unit commit: `7ed6cd1` (`feat(harness): bound command execution and capture evidence`).
+- Jira closure is ready after local verification and will be updated through the authorized sequential workflow.
