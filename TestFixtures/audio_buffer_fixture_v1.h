@@ -1,0 +1,14 @@
+#ifndef AUDIOFORGE_AUDIO_BUFFER_FIXTURE_V1_H
+#define AUDIOFORGE_AUDIO_BUFFER_FIXTURE_V1_H
+
+#define AUDIOFORGE_FIXTURE_CHANNEL_COUNT 2u
+#define AUDIOFORGE_FIXTURE_SAMPLE_RATE 48000u
+#define AUDIOFORGE_FIXTURE_FRAME_COUNT 3u
+#define AUDIOFORGE_FIXTURE_SAMPLE_COUNT 6u
+
+/* Synthetic interleaved stereo fixture; no personal media or file paths. */
+static const float AUDIOFORGE_FIXTURE_SAMPLES[AUDIOFORGE_FIXTURE_SAMPLE_COUNT] = {
+    0.25f, -0.5f, 0.75f, 1.0f, -1.0f, 0.0f
+};
+
+#endif
