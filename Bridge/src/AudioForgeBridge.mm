@@ -88,12 +88,59 @@ NSErrorDomain const AudioForgeBridgeErrorDomain =
 
 @end
 
+@interface AudioForgeBridgeState ()
+
+- (instancetype)initWithEngineVersion:(NSString *)engineVersion
+                           engineReady:(BOOL)engineReady
+                   processingSupported:(BOOL)processingSupported
+                         projectLoaded:(BOOL)projectLoaded
+    NS_DESIGNATED_INITIALIZER;
+
+@end
+
+@implementation AudioForgeBridgeState
+
+- (instancetype)initWithEngineVersion:(NSString *)engineVersion
+                           engineReady:(BOOL)engineReady
+                   processingSupported:(BOOL)processingSupported
+                         projectLoaded:(BOOL)projectLoaded {
+    self = [super init];
+    if (self != nil) {
+        _engineVersion = [engineVersion copy];
+        _engineReady = engineReady;
+        _processingSupported = processingSupported;
+        _projectLoaded = projectLoaded;
+    }
+    return self;
+}
+
+@end
+
 @implementation AudioForgeBridge
 
 + (NSString *)engineVersion {
     AudioForgeVersion version = audioforge_engine_get_version();
     return [NSString stringWithFormat:@"%u.%u.%u", version.major, version.minor,
                                       version.patch];
+}
+
++ (AudioForgeBridgeState *)currentState {
+    AudioForgeEngine *engine = nullptr;
+    const AudioForgeStatus engineStatus = audioforge_engine_create(&engine);
+    audioforge_engine_destroy(engine);
+
+    AudioForgeProcessRequest request = AUDIOFORGE_PROCESS_REQUEST_INIT;
+    AudioForgeProcessResult result = AUDIOFORGE_PROCESS_RESULT_INIT;
+    AudioForgeError error = AUDIOFORGE_ERROR_INIT;
+    const AudioForgeStatus processingStatus =
+        audioforge_engine_process(&request, &result, &error);
+
+    return [[AudioForgeBridgeState alloc]
+        initWithEngineVersion:[self engineVersion]
+                  engineReady:engineStatus == AUDIOFORGE_STATUS_OK
+          processingSupported:processingStatus == AUDIOFORGE_STATUS_OK &&
+                               result.status == AUDIOFORGE_STATUS_OK
+                projectLoaded:NO];
 }
 
 + (BOOL)supportsEngineAPIMajor:(uint32_t)major

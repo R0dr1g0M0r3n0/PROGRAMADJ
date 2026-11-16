@@ -49,9 +49,21 @@ typedef NS_ENUM(NSInteger, AudioForgeBridgeErrorCode) {
 
 @end
 
+@interface AudioForgeBridgeState : NSObject
+
+@property(nonatomic, copy, readonly) NSString *engineVersion;
+@property(nonatomic, readonly, getter=isEngineReady) BOOL engineReady;
+@property(nonatomic, readonly, getter=isProcessingSupported) BOOL processingSupported;
+@property(nonatomic, readonly, getter=isProjectLoaded) BOOL projectLoaded;
+
+- (instancetype)init NS_UNAVAILABLE;
+
+@end
+
 @interface AudioForgeBridge : NSObject
 
 + (NSString *)engineVersion;
++ (AudioForgeBridgeState *)currentState;
 + (BOOL)supportsEngineAPIMajor:(uint32_t)major
                         minor:(uint32_t)minor
                         patch:(uint32_t)patch;

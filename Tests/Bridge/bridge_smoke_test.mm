@@ -1,6 +1,8 @@
 #import <Foundation/Foundation.h>
 #import "AudioForgeBridge.h"
 
+#include "audioforge/engine.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -16,6 +18,28 @@ int main(void) {
         if (![AudioForgeBridge supportsEngineAPIMajor:1 minor:0 patch:0] ||
             [AudioForgeBridge supportsEngineAPIMajor:2 minor:0 patch:0]) {
             fprintf(stderr, "FAIL: bridge API version compatibility mapping\n");
+            return EXIT_FAILURE;
+        }
+
+        AudioForgeEngine *engine = NULL;
+        const AudioForgeStatus engineStatus = audioforge_engine_create(&engine);
+        audioforge_engine_destroy(engine);
+
+        AudioForgeProcessRequest processRequest = AUDIOFORGE_PROCESS_REQUEST_INIT;
+        AudioForgeProcessResult processResult = AUDIOFORGE_PROCESS_RESULT_INIT;
+        AudioForgeError processError = AUDIOFORGE_ERROR_INIT;
+        const AudioForgeStatus processStatus = audioforge_engine_process(
+            &processRequest, &processResult, &processError);
+
+        AudioForgeBridgeState *state = [AudioForgeBridge currentState];
+        if (state == nil ||
+            ![state.engineVersion isEqualToString:version] ||
+            state.engineReady != (engineStatus == AUDIOFORGE_STATUS_OK) ||
+            state.processingSupported !=
+                (processStatus == AUDIOFORGE_STATUS_OK &&
+                 processResult.status == AUDIOFORGE_STATUS_OK) ||
+            state.projectLoaded) {
+            fprintf(stderr, "FAIL: typed bridge state snapshot contract\n");
             return EXIT_FAILURE;
         }
 
