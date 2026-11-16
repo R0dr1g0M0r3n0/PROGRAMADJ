@@ -390,8 +390,16 @@ ValidationResult validate_manifest(const Manifest& manifest, const std::filesyst
         for (const auto& source : manifest["sourceAssets"]) {
             const auto original_path = std::filesystem::path(text(source, "originalPath"));
             const auto source_path = (original_path.is_absolute() ? original_path : project_directory / original_path).lexically_normal();
-            if (!project_directory.empty() && source_path == output_path)
-                error(result, "derivedAssets", "generated asset cannot overwrite an original source file");
+            if (!project_directory.empty()) {
+                std::error_code source_error;
+                std::error_code output_error;
+                const auto resolved_source = std::filesystem::weakly_canonical(source_path, source_error);
+                const auto resolved_output = std::filesystem::weakly_canonical(output_path, output_error);
+                if (source_error || output_error)
+                    error(result, "derivedAssets", "source and output paths cannot be resolved safely");
+                else if (resolved_source == resolved_output)
+                    error(result, "derivedAssets", "generated asset cannot overwrite an original source file");
+            }
         }
         if (!contains(manifest, "profiles", text(asset, "profileId")))
             error(result, "derivedAssets", "profileId must identify a processing profile");
@@ -597,11 +605,11 @@ Manifest load_manifest(const std::filesystem::path& path) {
 }
 
 void save_manifest(const std::filesystem::path& path, const Manifest& manifest) {
-    const auto validation = validate_manifest(manifest, path.parent_path());
-    if (!validation.is_valid()) throw std::runtime_error("invalid project manifest: " + validation.errors.front());
     if (path.empty() || !path.has_filename()) throw std::runtime_error("manifest path must name a file");
     const auto directory_path = std::filesystem::canonical(
         path.parent_path().empty() ? std::filesystem::current_path() : path.parent_path());
+    const auto validation = validate_manifest(manifest, directory_path);
+    if (!validation.is_valid()) throw std::runtime_error("invalid project manifest: " + validation.errors.front());
     ScopedDescriptor directory(::open(directory_path.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
     if (directory.get() < 0) throw std::runtime_error(io_error("unable to open project directory"));
     const auto filename = path.filename().string();

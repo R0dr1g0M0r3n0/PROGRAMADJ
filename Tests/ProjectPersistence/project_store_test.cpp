@@ -121,6 +121,40 @@ void test_round_trip_and_references() {
     fs::create_symlink(outside_file, project_directory / "derived/example-v1.wav");
     require(!audioforge::project::validate_manifest(source, project_directory).is_valid(),
             "symlink escapes in derived asset tree must be rejected");
+    fs::remove(project_directory / "derived/example-v1.wav");
+    write_text(project_directory / "derived/example-v1.wav", "derived output");
+    fs::create_symlink(project_directory / "derived/example-v1.wav", project_directory / "original-alias.wav");
+    auto alias_collision = source;
+    alias_collision["sourceAssets"][0]["originalPath"] = (project_directory / "original-alias.wav").string();
+    require(!audioforge::project::validate_manifest(alias_collision, project_directory).is_valid(),
+            "derived output must not alias an original source through a symlink");
+    fs::remove(project_directory / "derived/example-v1.wav");
+    fs::create_symlink(outside_file, project_directory / "derived/example-v1.wav");
+    const auto prior_directory = fs::current_path();
+    fs::current_path(project_directory);
+    bool relative_save_rejected = false;
+    bool relative_save_succeeded = false;
+    bool relative_load_rejected = false;
+    try {
+        audioforge::project::save_manifest("project.json", source);
+    } catch (const std::exception&) {
+        relative_save_rejected = true;
+    }
+    relative_save_succeeded = !relative_save_rejected;
+    if (relative_save_succeeded) {
+        try {
+            (void)audioforge::project::load_manifest("project.json");
+        } catch (const std::exception&) {
+            relative_load_rejected = true;
+        }
+    }
+    fs::current_path(prior_directory);
+    require(relative_save_rejected,
+            relative_save_succeeded && relative_load_rejected
+                ? "bare-filename save accepted a symlinked derived asset that load then rejected"
+                : "saving a bare filename from the project directory must reject a symlinked derived asset");
+    require(!fs::exists(project_directory / "project.json"),
+            "rejected relative-path save must not create a manifest");
     fs::remove_all(project_directory);
     fs::remove_all(directory);
 }
