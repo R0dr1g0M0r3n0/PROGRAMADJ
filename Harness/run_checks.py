@@ -83,6 +83,10 @@ def run_check(
         )
 
 
+def evidence_json(result: CheckResult) -> str:
+    return json.dumps(asdict(result), sort_keys=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--build-dir", type=Path, default=Path("build"))
@@ -94,7 +98,7 @@ def main():
         print(result.stdout, end="")
     if result.stderr:
         print(result.stderr, end="", file=sys.stderr)
-    print(json.dumps(asdict(result), sort_keys=True), file=sys.stderr)
+    print(evidence_json(result), file=sys.stderr)
     return result.exit_code if result.exit_code is not None else 1
 
 
