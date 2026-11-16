@@ -27,6 +27,20 @@ No other transition is valid. In particular, succeeded and blocked are terminal.
 - **Interruption:** a crash or interruption without a committed terminal result cannot infer succeeded. Recovery behavior is not specified here; PD-70 must prove it.
 - **Separation:** project-manifest history and task transition records have distinct responsibilities. Manifest entries cannot substitute for task transition records or their execution evidence.
 
+## Version 1 transition-record shape
+
+`docs/task-transition-record-v1.schema.json` describes one record. Each version 1 record carries `schemaVersion` (exactly `1`), `taskId`, a per-task `sequence` starting at `1` and increasing by one, `fromState`, `toState`, `event`, `attempt`, and `prerequisiteIds`. The prerequisite identifiers are repeated on each record; all prerequisites must have succeeded before the first attempt starts.
+
+| Event | Required transition data |
+|---|---|
+| `created` | `null` → `pending`, attempt `0` |
+| `attempt_started` | `pending` → `running` at attempt `0`, or `failed` → `running` at correction attempt `1`–`3`; include the exact `inputCommit` |
+| `attempt_succeeded` | `running` → `succeeded`; include `executionEvidence` with the exact command argument vector and a successful result |
+| `attempt_failed` | `running` → `failed`; include `executionEvidence` with the exact command argument vector and a failed result |
+| `attempts_exhausted` | `failed` → `blocked` at attempt `3`, after the initial attempt and all three corrections failed |
+
+Execution evidence has a `command` argument array and a `result` containing `outcome` (`success` or `failure`) and non-empty `detail`. The event, target state, and result outcome must agree. The version 1 schema does not validate ordered history by itself; replay must enforce per-task sequence, legal transitions, prerequisite completion, attempt order, and terminal-state rules. An unknown schema version remains fail-closed.
+
 ## Durability and implementation boundary
 
 The implementation must make the distinction between an uncommitted intent and a committed durable transition observable, preserve append-only history, and replay deterministically with fail-closed validation. This contract intentionally does not prescribe storage encoding, filesystem/database strategy, or a specific commit protocol. PD-70 owns those implementation details and the tests for restart recovery, corruption/unknown-version handling, and the correction-attempt limit.
