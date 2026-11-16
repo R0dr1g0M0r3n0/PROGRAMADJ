@@ -26,4 +26,4 @@ Verification evidence:
 - Full Python harness discovery passed **13/13**.
 - `python3 Harness/run_checks.py --build-dir build --config Debug --timeout-seconds 30`: PASS, CTest **4/4**, exit code `0`.
 - `git diff --check`: PASS.
-- Work-unit commit: to be recorded after the bounded three-file commit.
+- Work-unit commit: `373c071` (`feat(harness): serialize deliberate failure evidence`).
