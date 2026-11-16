@@ -73,7 +73,7 @@ Repository source, tests, CMake metadata and this task document only. Installing
 |---|---|---|---|---:|---|
 | 1 of 3 | `feature/pd-68-01-manifest`: `main..1230ca6263816065f9bdd5e823f7760536aba6dc` | `main` | [#9](https://github.com/R0dr1g0M0r3n0/PROGRAMADJ/pull/9) | 554 (554 additions, 0 deletions) — accepted `size:exception` | T1/T2 validated v1 persistence boundary and round-trip |
 | 2 of 3 | `feature/pd-68-02-hardening`: `1230ca6263816065f9bdd5e823f7760536aba6dc..2bf113de3c44b751f6d0efbdce503efd0cdc887a` | `feature/pd-68-01-manifest` | [#10](https://github.com/R0dr1g0M0r3n0/PROGRAMADJ/pull/10) | 533 (487 additions, 46 deletions) — accepted `size:exception` | Schema validation, path/lineage checks, secure atomic write corrections |
-| 3 of 3 | `feature/pd-68-03-migration`: `2bf113de3c44b751f6d0efbdce503efd0cdc887a..31d1350` (final PR head includes the delivery-evidence update) | `feature/pd-68-02-hardening` | [#11](https://github.com/R0dr1g0M0r3n0/PROGRAMADJ/pull/11) | 134 (128 additions, 6 deletions) — includes this delivery-evidence update | Version dispatch, file-load rejection preservation, delivery evidence |
+| 3 of 3 | `feature/pd-68-03-migration`: `2bf113de3c44b751f6d0efbdce503efd0cdc887a..feature/pd-68-03-migration` (final PR head includes the delivery-evidence update) | `feature/pd-68-02-hardening` | [#11](https://github.com/R0dr1g0M0r3n0/PROGRAMADJ/pull/11) | 134 (128 additions, 6 deletions) — includes this delivery-evidence update | Version dispatch, file-load rejection preservation, delivery evidence |
 
 Dependency order: `main -> PR #9 -> PR #10 -> PR #11`. The PR bases currently follow that stack; after each parent merges, retarget/rebase the next PR to `main` so its diff shows only its own work unit.
 
