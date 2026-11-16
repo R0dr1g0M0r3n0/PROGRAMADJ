@@ -1,0 +1,249 @@
+{
+  "formatVersion": 1,
+  "records": [
+    {
+      "schemaVersion": 1,
+      "taskId": "task-prerequisite",
+      "sequence": 1,
+      "fromState": null,
+      "toState": "pending",
+      "event": "created",
+      "attempt": 0,
+      "prerequisiteIds": []
+    },
+    {
+      "schemaVersion": 1,
+      "taskId": "task-prerequisite",
+      "sequence": 2,
+      "fromState": "pending",
+      "toState": "running",
+      "event": "attempt_started",
+      "attempt": 0,
+      "prerequisiteIds": [],
+      "inputCommit": "1111111111111111111111111111111111111111"
+    },
+    {
+      "schemaVersion": 1,
+      "taskId": "task-prerequisite",
+      "sequence": 3,
+      "fromState": "running",
+      "toState": "succeeded",
+      "event": "attempt_succeeded",
+      "attempt": 0,
+      "prerequisiteIds": [],
+      "executionEvidence": {
+        "command": [
+          "audioforge-task",
+          "execute",
+          "--task-id",
+          "task-prerequisite"
+        ],
+        "result": {
+          "outcome": "success",
+          "detail": "exit status 0; task completed"
+        }
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "taskId": "task-dependent",
+      "sequence": 1,
+      "fromState": null,
+      "toState": "pending",
+      "event": "created",
+      "attempt": 0,
+      "prerequisiteIds": [
+        "task-prerequisite"
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "taskId": "task-dependent",
+      "sequence": 2,
+      "fromState": "pending",
+      "toState": "running",
+      "event": "attempt_started",
+      "attempt": 0,
+      "prerequisiteIds": [
+        "task-prerequisite"
+      ],
+      "inputCommit": "2222222222222222222222222222222222222222"
+    },
+    {
+      "schemaVersion": 1,
+      "taskId": "task-dependent",
+      "sequence": 3,
+      "fromState": "running",
+      "toState": "succeeded",
+      "event": "attempt_succeeded",
+      "attempt": 0,
+      "prerequisiteIds": [
+        "task-prerequisite"
+      ],
+      "executionEvidence": {
+        "command": [
+          "audioforge-task",
+          "execute",
+          "--task-id",
+          "task-dependent"
+        ],
+        "result": {
+          "outcome": "success",
+          "detail": "exit status 0; dependent task completed"
+        }
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "taskId": "task-retry-exhausted",
+      "sequence": 1,
+      "fromState": null,
+      "toState": "pending",
+      "event": "created",
+      "attempt": 0,
+      "prerequisiteIds": []
+    },
+    {
+      "schemaVersion": 1,
+      "taskId": "task-retry-exhausted",
+      "sequence": 2,
+      "fromState": "pending",
+      "toState": "running",
+      "event": "attempt_started",
+      "attempt": 0,
+      "prerequisiteIds": [],
+      "inputCommit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "schemaVersion": 1,
+      "taskId": "task-retry-exhausted",
+      "sequence": 3,
+      "fromState": "running",
+      "toState": "failed",
+      "event": "attempt_failed",
+      "attempt": 0,
+      "prerequisiteIds": [],
+      "executionEvidence": {
+        "command": [
+          "audioforge-task",
+          "execute",
+          "--task-id",
+          "task-retry-exhausted"
+        ],
+        "result": {
+          "outcome": "failure",
+          "detail": "exit status 1; initial attempt failed"
+        }
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "taskId": "task-retry-exhausted",
+      "sequence": 4,
+      "fromState": "failed",
+      "toState": "running",
+      "event": "attempt_started",
+      "attempt": 1,
+      "prerequisiteIds": [],
+      "inputCommit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "schemaVersion": 1,
+      "taskId": "task-retry-exhausted",
+      "sequence": 5,
+      "fromState": "running",
+      "toState": "failed",
+      "event": "attempt_failed",
+      "attempt": 1,
+      "prerequisiteIds": [],
+      "executionEvidence": {
+        "command": [
+          "audioforge-task",
+          "execute",
+          "--task-id",
+          "task-retry-exhausted"
+        ],
+        "result": {
+          "outcome": "failure",
+          "detail": "exit status 1; correction attempt 1 failed"
+        }
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "taskId": "task-retry-exhausted",
+      "sequence": 6,
+      "fromState": "failed",
+      "toState": "running",
+      "event": "attempt_started",
+      "attempt": 2,
+      "prerequisiteIds": [],
+      "inputCommit": "cccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "schemaVersion": 1,
+      "taskId": "task-retry-exhausted",
+      "sequence": 7,
+      "fromState": "running",
+      "toState": "failed",
+      "event": "attempt_failed",
+      "attempt": 2,
+      "prerequisiteIds": [],
+      "executionEvidence": {
+        "command": [
+          "audioforge-task",
+          "execute",
+          "--task-id",
+          "task-retry-exhausted"
+        ],
+        "result": {
+          "outcome": "failure",
+          "detail": "exit status 1; correction attempt 2 failed"
+        }
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "taskId": "task-retry-exhausted",
+      "sequence": 8,
+      "fromState": "failed",
+      "toState": "running",
+      "event": "attempt_started",
+      "attempt": 3,
+      "prerequisiteIds": [],
+      "inputCommit": "dddddddddddddddddddddddddddddddddddddddd"
+    },
+    {
+      "schemaVersion": 1,
+      "taskId": "task-retry-exhausted",
+      "sequence": 9,
+      "fromState": "running",
+      "toState": "failed",
+      "event": "attempt_failed",
+      "attempt": 3,
+      "prerequisiteIds": [],
+      "executionEvidence": {
+        "command": [
+          "audioforge-task",
+          "execute",
+          "--task-id",
+          "task-retry-exhausted"
+        ],
+        "result": {
+          "outcome": "failure",
+          "detail": "exit status 1; correction attempt 3 failed"
+        }
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "taskId": "task-retry-exhausted",
+      "sequence": 10,
+      "fromState": "failed",
+      "toState": "blocked",
+      "event": "attempts_exhausted",
+      "attempt": 3,
+      "prerequisiteIds": []
+    }
+  ]
+}

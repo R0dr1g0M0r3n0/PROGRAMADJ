@@ -1,0 +1,172 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:audioforge:task-transition-record:v1",
+  "title": "AudioForge task transition record, version 1",
+  "description": "One durable task transition record. This schema defines a data contract, not a runtime or replay implementation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "taskId",
+    "sequence",
+    "fromState",
+    "toState",
+    "event",
+    "attempt",
+    "prerequisiteIds"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "taskId": { "type": "string", "minLength": 1 },
+    "sequence": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Strictly increases by one per task during ordered replay."
+    },
+    "fromState": {
+      "type": ["string", "null"],
+      "enum": [null, "pending", "running", "failed", "succeeded", "blocked"]
+    },
+    "toState": {
+      "type": "string",
+      "enum": ["pending", "running", "failed", "succeeded", "blocked"]
+    },
+    "event": {
+      "enum": [
+        "created",
+        "attempt_started",
+        "attempt_succeeded",
+        "attempt_failed",
+        "attempts_exhausted"
+      ]
+    },
+    "attempt": { "type": "integer", "minimum": 0, "maximum": 3 },
+    "prerequisiteIds": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "inputCommit": {
+      "type": "string",
+      "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$",
+      "description": "Exact Git input commit for an execution attempt."
+    },
+    "executionEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["command", "result"],
+      "properties": {
+        "command": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Exact command argument vector used for this execution."
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["outcome", "detail"],
+          "properties": {
+            "outcome": { "enum": ["success", "failure"] },
+            "detail": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Exact execution result evidence."
+            }
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "event": { "const": "created" } },
+        "required": ["event"]
+      },
+      "then": {
+        "properties": {
+          "fromState": { "const": null },
+          "toState": { "const": "pending" },
+          "attempt": { "const": 0 }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "event": { "const": "attempt_started" } },
+        "required": ["event"]
+      },
+      "then": {
+        "properties": {
+          "toState": { "const": "running" },
+          "attempt": { "type": "integer", "minimum": 0, "maximum": 3 }
+        },
+        "required": ["inputCommit"],
+        "oneOf": [
+          {
+            "properties": {
+              "fromState": { "const": "pending" },
+              "attempt": { "const": 0 }
+            }
+          },
+          {
+            "properties": {
+              "fromState": { "const": "failed" },
+              "attempt": { "minimum": 1, "maximum": 3 }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": { "event": { "const": "attempt_succeeded" } },
+        "required": ["event"]
+      },
+      "then": {
+        "properties": {
+          "fromState": { "const": "running" },
+          "toState": { "const": "succeeded" },
+          "executionEvidence": {
+            "properties": {
+              "result": { "properties": { "outcome": { "const": "success" } } }
+            }
+          }
+        },
+        "required": ["executionEvidence"]
+      }
+    },
+    {
+      "if": {
+        "properties": { "event": { "const": "attempt_failed" } },
+        "required": ["event"]
+      },
+      "then": {
+        "properties": {
+          "fromState": { "const": "running" },
+          "toState": { "const": "failed" },
+          "executionEvidence": {
+            "properties": {
+              "result": { "properties": { "outcome": { "const": "failure" } } }
+            }
+          }
+        },
+        "required": ["executionEvidence"]
+      }
+    },
+    {
+      "if": {
+        "properties": { "event": { "const": "attempts_exhausted" } },
+        "required": ["event"]
+      },
+      "then": {
+        "properties": {
+          "fromState": { "const": "failed" },
+          "toState": { "const": "blocked" },
+          "attempt": { "const": 3 }
+        }
+      }
+    }
+  ]
+}
