@@ -55,7 +55,10 @@ Repository source, tests, CMake metadata and this task document only. Installing
 
 - Route: delegated direct; exploration confirmed the repository has no existing persistence module or native JSON parser.
 - Delivery strategy: ask-on-risk; split into stacked PRs if the accumulated diff exceeds the 400-line review budget.
-- TDD: RED observed when `cmake --build build --config Debug --target AudioForgeProjectPersistenceTests` failed to compile because `project_store.hpp` did not exist; GREEN followed by adding the persistence boundary, implementation, and tests.
+- TDD: Initial RED for T1/T2 was the missing `project_store.hpp`. Independent review then added regression tests; RED reproduced acceptance of an invalid digest (`invalid digest must be rejected`). GREEN implemented schema-driven v1 validation and filesystem safeguards.
+- Corrected defects: validate against the checked-in JSON Schema (types, enums, patterns/digests, required fields, and extra properties); validate normalized `derived/` paths and reject symlink escapes/source collisions; enforce audio-root and history input/output lineage; use `openat`/`O_NOFOLLOW`, exclusive random temporary creation, `fsync`, and atomic `renameat`; reject symlink/non-regular targets and preserve the previous manifest as `.bak`.
+- Failure tests: pre-create the former `.tmp.0` symlink and verify its target is unchanged; use `RLIMIT_FSIZE=0` to force a real temporary-write failure and verify manifest bytes remain identical; reject a directory and symlink destination without modifying their targets.
 - Verification: `cmake -S . -B build -G Xcode -DCMAKE_OSX_ARCHITECTURES=arm64` — passed; `cmake --build build --config Debug` — passed; `ctest --test-dir build -C Debug --output-on-failure` — 4/4 passed; `python3 -m unittest discover -s Tests/Harness -p 'test_*.py'` — 1 test passed; `git diff --check` — passed.
-- T1/T2 work-unit commit: pending.
+- T1/T2 work-unit commit: `1230ca6263816065f9bdd5e823f7760536aba6dc` (`feat(project-persistence): add validated manifest storage`).
+- Independent-review correction commit: `29a5b5d6e244bc485eb76191def062cab81760ac` (`fix(project-persistence): validate schema and secure writes`).
 - Next: implement T3 migration dispatch and tests, then complete T4 evidence and delivery.
