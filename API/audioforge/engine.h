@@ -186,6 +186,59 @@ typedef struct AudioForgeAudioBuffer {
     const float* samples;
 } AudioForgeAudioBuffer;
 
+typedef struct AudioForgeAnalysisRequest {
+    uint32_t struct_size;
+    AudioForgeVersion api_version;
+    const AudioForgeAudioBuffer* input;
+    uint32_t channel_index;
+    uint32_t fft_size;
+    uint32_t hop_size;
+    uint32_t reserved;
+    float* output_magnitudes;
+    uint64_t magnitude_capacity;
+    uint64_t* output_frame_starts;
+    uint64_t frame_start_capacity;
+    float* output_frequencies_hz;
+    uint64_t frequency_capacity;
+} AudioForgeAnalysisRequest;
+
+#define AUDIOFORGE_ANALYSIS_REQUEST_INIT \
+    { (uint32_t)sizeof(AudioForgeAnalysisRequest), AUDIOFORGE_API_VERSION_INIT, \
+      NULL, 0, 0, 0, 0, NULL, 0, NULL, 0, NULL, 0 }
+
+typedef struct AudioForgeAnalysisResult {
+    uint32_t struct_size;
+    AudioForgeVersion api_version;
+    AudioForgeStatus status;
+    uint32_t reserved;
+    uint64_t frame_count;
+    uint64_t bin_count;
+    uint64_t magnitudes_written;
+} AudioForgeAnalysisResult;
+
+#define AUDIOFORGE_ANALYSIS_RESULT_INIT \
+    { (uint32_t)sizeof(AudioForgeAnalysisResult), AUDIOFORGE_API_VERSION_INIT, \
+      AUDIOFORGE_STATUS_OK, 0, 0, 0, 0 }
+
+#define AUDIOFORGE_ANALYSIS_MAX_FFT_SIZE 65536u
+#define AUDIOFORGE_ANALYSIS_MAX_DFT_OPERATIONS 1048576u
+
+/* Synchronous rectangular-window DFT over a borrowed interleaved audio buffer.
+ * fft_size must be a power of two in [2, AUDIOFORGE_ANALYSIS_MAX_FFT_SIZE];
+ * hop_size must be nonzero, and one call is limited to
+ * AUDIOFORGE_ANALYSIS_MAX_DFT_OPERATIONS DFT sample/bin terms. Only complete
+ * windows are analyzed. The selected
+ * channel is read without modifying or retaining the input. Magnitudes are
+ * normalized by fft_size; frequencies are bin * sample_rate / fft_size for
+ * bins 0..floor(fft_size/2). Frame starts are input-frame coordinates at
+ * frame_index * hop_size. All output arrays are caller-owned, writable, and
+ * must not overlap one another or the input sample storage. Invalid requests
+ * leave output arrays untouched; a valid result record is reset to an error
+ * status and zero counts before validation completes. No allocation occurs. */
+AudioForgeStatus audioforge_engine_analyze(
+    const AudioForgeAnalysisRequest* request,
+    AudioForgeAnalysisResult* result);
+
 #define AUDIOFORGE_AUDIO_BUFFER_INIT \
     { (uint32_t)sizeof(AudioForgeAudioBuffer), 0, 0, 0, 0, NULL }
 

@@ -41,6 +41,8 @@ add_executable(AudioForge MACOSX_BUNDLE
 )
 target_link_libraries(AudioForge PRIVATE AudioForgeBridge)
 set_target_properties(AudioForge PROPERTIES
+    OUTPUT_NAME "Cross Music Editor"
+    MACOSX_BUNDLE_BUNDLE_NAME "Cross Music Editor"
     MACOSX_BUNDLE_GUI_IDENTIFIER com.audioforge.studio
     XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER com.audioforge.studio
     XCODE_ATTRIBUTE_SWIFT_OBJC_BRIDGING_HEADER "${CMAKE_SOURCE_DIR}/App/AudioForge-Bridging-Header.h"

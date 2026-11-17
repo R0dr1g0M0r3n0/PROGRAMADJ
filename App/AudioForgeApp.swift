@@ -3,9 +3,9 @@ import SwiftUI
 @main
 struct AudioForgeApp: App {
     var body: some Scene {
-        WindowGroup("AudioForge Studio") {
+        WindowGroup("Cross Music Editor") {
             VStack(spacing: 12) {
-                Text("AudioForge Studio")
+                Text("Cross Music Editor")
                     .font(.title)
                 Text("Engine API \(AudioForgeBridge.engineVersion())")
             }

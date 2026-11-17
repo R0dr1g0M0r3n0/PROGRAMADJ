@@ -1,0 +1,160 @@
+{
+  "title": "AudioForge Studio — Titanium Dark Concept Catalog",
+  "version": "v4-dark",
+  "status": "generated-concepts-not-implementation",
+  "approval": {
+    "approved": "New Titanium visual direction and v4-dark workflow/structure",
+    "not_implied": "Blanket acceptance of every generated pixel or implementation approval"
+  },
+  "theme": {
+    "direction": "new-titanium-style-studio",
+    "backgrounds": "black/near-black",
+    "dark_surfaces": [
+      "titlebar",
+      "controls",
+      "inspector",
+      "transport",
+      "menus",
+      "dialogs",
+      "supporting windows"
+    ],
+    "text": "silver",
+    "active_ui": "deep petrol",
+    "bright_panels_allowed": false
+  },
+  "shared_structure": [
+    "six-mode segmented belt",
+    "prominent numeric readings",
+    "top full-song overview",
+    "central stereo canvas",
+    "contextual instrument-rack inspector",
+    "bottom transport"
+  ],
+  "waveform_semantics": {
+    "three_band": {
+      "lows": "blue",
+      "mids": "amber",
+      "highs": "pale/near-white signal marks, not panel backgrounds",
+      "cutoff_frequencies": null,
+      "cutoff_status": "undecided"
+    },
+    "transients": "Clear attacks; not decorative smoothing or uniform synthetic peaks",
+    "independent_metadata_layers": [
+      "cue points",
+      "phrase regions",
+      "beat grid",
+      "warp anchors"
+    ],
+    "draw": {
+      "detail": "true PCM sample stems at sample scale",
+      "edit_domain": "per-sample amplitude",
+      "fabricated_frequency_band_edits_allowed": false,
+      "multiband_scope": "top full-song overview only"
+    },
+    "source_audio_unchanged": true
+  },
+  "catalog_counts": {
+    "images": 8,
+    "modalities": 6,
+    "supporting_examples": 10
+  },
+  "images": [
+    {
+      "filename": "01-library.png",
+      "mode": "Library",
+      "supporting_panels": [],
+      "asset_status": "pending-parent-supplied"
+    },
+    {
+      "filename": "02-dj-prep.png",
+      "mode": "DJ Prep",
+      "supporting_panels": [],
+      "asset_status": "pending-parent-supplied"
+    },
+    {
+      "filename": "03-warp.png",
+      "mode": "Warp",
+      "supporting_panels": [],
+      "asset_status": "present-not-visually-reviewed"
+    },
+    {
+      "filename": "04-restore.png",
+      "mode": "Restore",
+      "supporting_panels": [],
+      "asset_status": "pending-parent-supplied"
+    },
+    {
+      "filename": "05-draw.png",
+      "mode": "Draw",
+      "supporting_panels": [],
+      "asset_status": "pending-parent-supplied"
+    },
+    {
+      "filename": "06-analyze.png",
+      "mode": "Analyze",
+      "supporting_panels": [],
+      "asset_status": "pending-parent-supplied"
+    },
+    {
+      "filename": "07-processing-windows.png",
+      "mode": null,
+      "supporting_panels": [
+        "Spectral De-noise",
+        "Deconstruct",
+        "Music Rebalance",
+        "Module Chain"
+      ],
+      "asset_status": "pending-parent-supplied"
+    },
+    {
+      "filename": "08-workflow-windows.png",
+      "mode": null,
+      "supporting_panels": [
+        "Compare & History",
+        "Batch Queue",
+        "Export",
+        "Audio & Shortcuts",
+        "Project & Files/Relink",
+        "Presets & Module Details"
+      ],
+      "asset_status": "pending-parent-supplied"
+    }
+  ],
+  "assets": {
+    "supplied_by": "parent",
+    "availability_note": "Presence snapshot only; assets may arrive independently. Presence does not imply pixel review or acceptance.",
+    "prompts": {
+      "filename": "prompts.json",
+      "status": "pending-parent-supplied"
+    }
+  },
+  "scope": {
+    "passive_design_documentation_only": true,
+    "rx_full_scope_retained": true,
+    "illustrated_examples_exhaustive": false,
+    "code_changed": false,
+    "audio_changed": false,
+    "functional_implementation_claimed": false,
+    "calibration_claimed": false,
+    "accessibility_compliance_claimed": false
+  },
+  "unresolved": [
+    "Frequency-band cutoff values",
+    "Module algorithms, parameter ranges, and defaults",
+    "Processing results and calibration; any depicted values are illustrative"
+  ],
+  "references": {
+    "three_band_color_source": "https://rekordbox.com/en/2020/04/new-rekordbox-dj-application/",
+    "waveform_schemes_source": "https://cdn.rekordbox.com/files/20251202174516/rekordbox7.2.8_manual_EN.pdf",
+    "manual_pages": [
+      89,
+      228
+    ],
+    "referenced_schemes": [
+      "BLUE",
+      "RGB",
+      "3Band"
+    ],
+    "audioforge_cutoffs_defined_by_references": false
+  }
+}

@@ -89,7 +89,165 @@ void clear_output(const AudioForgeProcessRequest* request) {
                     sizeof(float));
 }
 
+void reset_analysis_result(AudioForgeAnalysisResult* result,
+                           AudioForgeStatus status) {
+    const uint32_t declared_size = result->struct_size;
+    std::memset(result, 0, sizeof(*result));
+    result->struct_size = declared_size;
+    result->api_version = AudioForgeVersion AUDIOFORGE_API_VERSION_INIT;
+    result->status = status;
+}
+
+bool is_power_of_two(uint32_t value) {
+    return value != 0 && (value & (value - 1)) == 0;
+}
+
+bool ranges_overlap(const void* first, size_t first_size,
+                    const void* second, size_t second_size) {
+    if (first_size == 0 || second_size == 0) {
+        return false;
+    }
+    const uintptr_t first_start = reinterpret_cast<uintptr_t>(first);
+    const uintptr_t second_start = reinterpret_cast<uintptr_t>(second);
+    if (first_start > std::numeric_limits<uintptr_t>::max() - first_size ||
+        second_start > std::numeric_limits<uintptr_t>::max() - second_size) {
+        return true;
+    }
+    return first_start < second_start + second_size &&
+           second_start < first_start + first_size;
+}
+
+bool analysis_output_ranges_are_disjoint(
+    const AudioForgeAudioBuffer* input,
+    float* magnitudes, size_t magnitude_bytes,
+    uint64_t* frame_starts, size_t frame_start_bytes,
+    float* frequencies, size_t frequency_bytes) {
+    const uint64_t input_sample_count = input->frame_count * input->channel_count;
+    const size_t input_bytes =
+        static_cast<size_t>(input_sample_count) * sizeof(float);
+    return !ranges_overlap(input->samples, input_bytes, magnitudes,
+                           magnitude_bytes) &&
+           !ranges_overlap(input->samples, input_bytes, frame_starts,
+                           frame_start_bytes) &&
+           !ranges_overlap(input->samples, input_bytes, frequencies,
+                           frequency_bytes) &&
+           !ranges_overlap(magnitudes, magnitude_bytes, frame_starts,
+                           frame_start_bytes) &&
+           !ranges_overlap(magnitudes, magnitude_bytes, frequencies,
+                           frequency_bytes) &&
+           !ranges_overlap(frame_starts, frame_start_bytes, frequencies,
+                           frequency_bytes);
+}
+
 }  // namespace
+
+extern "C" AudioForgeStatus audioforge_engine_analyze(
+    const AudioForgeAnalysisRequest* request,
+    AudioForgeAnalysisResult* result) {
+    if (result == nullptr || result->struct_size < sizeof(*result)) {
+        return AUDIOFORGE_STATUS_INVALID_ARGUMENT;
+    }
+    reset_analysis_result(result, AUDIOFORGE_STATUS_INVALID_ARGUMENT);
+
+    if (request == nullptr || request->struct_size < sizeof(*request)) {
+        return AUDIOFORGE_STATUS_INVALID_ARGUMENT;
+    }
+    if (request->api_version.major != AUDIOFORGE_API_VERSION_MAJOR ||
+        request->api_version.minor != AUDIOFORGE_API_VERSION_MINOR ||
+        request->api_version.patch != AUDIOFORGE_API_VERSION_PATCH) {
+        result->status = AUDIOFORGE_STATUS_VERSION_MISMATCH;
+        return AUDIOFORGE_STATUS_VERSION_MISMATCH;
+    }
+    if (request->reserved != 0 || request->input == nullptr ||
+        audioforge_audio_buffer_validate(request->input) !=
+            AUDIOFORGE_STATUS_OK ||
+        request->channel_index >= request->input->channel_count ||
+        request->fft_size < 2 ||
+        request->fft_size > AUDIOFORGE_ANALYSIS_MAX_FFT_SIZE ||
+        !is_power_of_two(request->fft_size) || request->hop_size == 0) {
+        return AUDIOFORGE_STATUS_INVALID_ARGUMENT;
+    }
+
+    const uint64_t frame_count =
+        request->input->frame_count < request->fft_size
+            ? 0
+            : 1 + (request->input->frame_count - request->fft_size) /
+                      request->hop_size;
+    const uint64_t bin_count = request->fft_size / 2 + 1;
+    if (frame_count != 0 && bin_count >
+                                std::numeric_limits<uint64_t>::max() /
+                                    frame_count) {
+        return AUDIOFORGE_STATUS_INVALID_ARGUMENT;
+    }
+    const uint64_t magnitude_count = frame_count * bin_count;
+    if (magnitude_count > std::numeric_limits<uint64_t>::max() /
+                              request->fft_size ||
+        magnitude_count * request->fft_size >
+            AUDIOFORGE_ANALYSIS_MAX_DFT_OPERATIONS) {
+        return AUDIOFORGE_STATUS_INVALID_ARGUMENT;
+    }
+    if (request->magnitude_capacity < magnitude_count ||
+        request->frame_start_capacity < frame_count ||
+        request->frequency_capacity < bin_count ||
+        (magnitude_count != 0 && request->output_magnitudes == nullptr) ||
+        (frame_count != 0 && request->output_frame_starts == nullptr) ||
+        request->output_frequencies_hz == nullptr ||
+        magnitude_count > std::numeric_limits<size_t>::max() / sizeof(float) ||
+        frame_count > std::numeric_limits<size_t>::max() / sizeof(uint64_t) ||
+        bin_count > std::numeric_limits<size_t>::max() / sizeof(float)) {
+        return AUDIOFORGE_STATUS_INVALID_ARGUMENT;
+    }
+
+    const size_t magnitude_bytes =
+        static_cast<size_t>(magnitude_count) * sizeof(float);
+    const size_t frame_start_bytes =
+        static_cast<size_t>(frame_count) * sizeof(uint64_t);
+    const size_t frequency_bytes = static_cast<size_t>(bin_count) * sizeof(float);
+    if (!analysis_output_ranges_are_disjoint(
+            request->input, request->output_magnitudes, magnitude_bytes,
+            request->output_frame_starts, frame_start_bytes,
+            request->output_frequencies_hz, frequency_bytes)) {
+        return AUDIOFORGE_STATUS_INVALID_ARGUMENT;
+    }
+
+    for (uint64_t bin = 0; bin < bin_count; ++bin) {
+        request->output_frequencies_hz[bin] =
+            static_cast<float>(static_cast<double>(bin) *
+                               request->input->sample_rate / request->fft_size);
+    }
+
+    const double pi = std::acos(-1.0);
+    for (uint64_t frame = 0; frame < frame_count; ++frame) {
+        const uint64_t frame_start = frame * request->hop_size;
+        request->output_frame_starts[frame] = frame_start;
+        for (uint64_t bin = 0; bin < bin_count; ++bin) {
+            double real = 0.0;
+            double imaginary = 0.0;
+            for (uint32_t sample_index = 0;
+                 sample_index < request->fft_size; ++sample_index) {
+                const uint64_t input_frame = frame_start + sample_index;
+                const uint64_t sample_offset =
+                    input_frame * request->input->channel_count +
+                    request->channel_index;
+                const double angle = 2.0 * pi * bin * sample_index /
+                                     request->fft_size;
+                const double sample = request->input->samples[sample_offset];
+                real += sample * std::cos(angle);
+                imaginary -= sample * std::sin(angle);
+            }
+            const uint64_t output_index = frame * bin_count + bin;
+            request->output_magnitudes[output_index] =
+                static_cast<float>(std::sqrt(real * real + imaginary * imaginary) /
+                                   request->fft_size);
+        }
+    }
+
+    result->status = AUDIOFORGE_STATUS_OK;
+    result->frame_count = frame_count;
+    result->bin_count = bin_count;
+    result->magnitudes_written = magnitude_count;
+    return AUDIOFORGE_STATUS_OK;
+}
 
 extern "C" AudioForgeStatus audioforge_cancellation_token_validate(
     const AudioForgeCancellationToken* token) {

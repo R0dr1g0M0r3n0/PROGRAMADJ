@@ -268,5 +268,126 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
+    /* Calibrated analysis uses a caller-owned interleaved buffer and writes
+     * only caller-owned analysis arrays. */
+    float tone_samples[32];
+    float original_tone_samples[sizeof(tone_samples) / sizeof(tone_samples[0])];
+    const float tone_period[8] = {
+        0.0f, 0.70710678f, 1.0f, 0.70710678f,
+        0.0f, -0.70710678f, -1.0f, -0.70710678f,
+    };
+    for (size_t frame = 0; frame < 16; ++frame) {
+        const float sample = tone_period[frame % 8];
+        tone_samples[frame * 2] = sample;
+        tone_samples[frame * 2 + 1] = -sample;
+    }
+    memcpy(original_tone_samples, tone_samples, sizeof(tone_samples));
+    AudioForgeAudioBuffer tone = AUDIOFORGE_AUDIO_BUFFER_INIT;
+    tone.channel_count = 2;
+    tone.sample_rate = 8000;
+    tone.frame_count = 16;
+    tone.samples = tone_samples;
+
+    float magnitudes[21];
+    uint64_t frame_starts[3];
+    float frequencies[5];
+    for (size_t index = 0; index < sizeof(magnitudes) / sizeof(magnitudes[0]); ++index) {
+        magnitudes[index] = -1.0f;
+    }
+    for (size_t index = 0; index < 3; ++index) {
+        frame_starts[index] = UINT64_MAX;
+    }
+    for (size_t index = 0; index < 5; ++index) {
+        frequencies[index] = -1.0f;
+    }
+    AudioForgeAnalysisRequest analysis_request = AUDIOFORGE_ANALYSIS_REQUEST_INIT;
+    analysis_request.input = &tone;
+    analysis_request.channel_index = 0;
+    analysis_request.fft_size = 8;
+    analysis_request.hop_size = 4;
+    analysis_request.output_magnitudes = magnitudes;
+    analysis_request.magnitude_capacity = 21;
+    analysis_request.output_frame_starts = frame_starts;
+    analysis_request.frame_start_capacity = 3;
+    analysis_request.output_frequencies_hz = frequencies;
+    analysis_request.frequency_capacity = 5;
+    AudioForgeAnalysisResult analysis_result = AUDIOFORGE_ANALYSIS_RESULT_INIT;
+
+    if (!check_condition(audioforge_engine_analyze(&analysis_request,
+                                                    &analysis_result) ==
+                             AUDIOFORGE_STATUS_OK,
+                         "calibrated analysis accepts valid DFT settings") ||
+        !check_condition(analysis_result.status == AUDIOFORGE_STATUS_OK &&
+                             analysis_result.frame_count == 3 &&
+                             analysis_result.bin_count == 5,
+                         "analysis reports complete frame and bin counts") ||
+        !check_condition(frame_starts[0] == 0 && frame_starts[1] == 4 &&
+                             frame_starts[2] == 8,
+                         "analysis reports frame starts in input-frame coordinates") ||
+        !check_condition(frequencies[0] == 0.0f && frequencies[1] == 1000.0f &&
+                             frequencies[2] == 2000.0f && frequencies[3] == 3000.0f &&
+                             frequencies[4] == 4000.0f,
+                         "analysis reports calibrated DFT bin frequencies") ||
+        !check_condition(magnitudes[1] > 0.49f && magnitudes[1] < 0.51f,
+                         "one-kilohertz tone appears in the expected normalized bin") ||
+        !check_condition(memcmp(tone_samples, original_tone_samples,
+                                sizeof(tone_samples)) == 0,
+                         "analysis preserves input samples byte-for-byte")) {
+        return EXIT_FAILURE;
+    }
+
+    magnitudes[0] = 17.0f;
+    analysis_request.fft_size = 7;
+    if (!check_condition(audioforge_engine_analyze(&analysis_request,
+                                                   &analysis_result) ==
+                             AUDIOFORGE_STATUS_INVALID_ARGUMENT,
+                         "analysis rejects invalid FFT settings") ||
+        !check_condition(magnitudes[0] == 17.0f,
+                         "invalid analysis leaves output samples untouched")) {
+        return EXIT_FAILURE;
+    }
+
+    analysis_request.fft_size = 8;
+    analysis_request.hop_size = 0;
+    if (!check_condition(audioforge_engine_analyze(&analysis_request,
+                                                   &analysis_result) ==
+                             AUDIOFORGE_STATUS_INVALID_ARGUMENT,
+                         "analysis rejects a zero hop size") ||
+        !check_condition(magnitudes[0] == 17.0f,
+                         "invalid hop leaves output samples untouched")) {
+        return EXIT_FAILURE;
+    }
+    analysis_request.hop_size = 4;
+    analysis_request.channel_index = 2;
+    if (!check_condition(audioforge_engine_analyze(&analysis_request,
+                                                   &analysis_result) ==
+                             AUDIOFORGE_STATUS_INVALID_ARGUMENT,
+                         "analysis rejects an out-of-range channel") ||
+        !check_condition(magnitudes[0] == 17.0f,
+                         "invalid channel leaves output samples untouched")) {
+        return EXIT_FAILURE;
+    }
+    analysis_request.channel_index = 0;
+    analysis_request.magnitude_capacity = 14;
+    if (!check_condition(audioforge_engine_analyze(&analysis_request,
+                                                   &analysis_result) ==
+                             AUDIOFORGE_STATUS_INVALID_ARGUMENT,
+                         "analysis rejects insufficient output capacity") ||
+        !check_condition(magnitudes[0] == 17.0f,
+                         "insufficient capacity leaves output samples untouched")) {
+        return EXIT_FAILURE;
+    }
+    analysis_request.magnitude_capacity = 21;
+    analysis_request.output_magnitudes = tone_samples;
+    if (!check_condition(audioforge_engine_analyze(&analysis_request,
+                                                   &analysis_result) ==
+                             AUDIOFORGE_STATUS_INVALID_ARGUMENT,
+                         "analysis rejects output overlapping borrowed input") ||
+        !check_condition(memcmp(tone_samples, original_tone_samples,
+                                sizeof(tone_samples)) == 0,
+                         "overlapping output cannot mutate input samples")) {
+        return EXIT_FAILURE;
+    }
+
     return 0;
 }
