@@ -124,4 +124,5 @@ if(BUILD_TESTING)
     set_tests_properties(AudioForgeEngineTests AudioForgeBridgeTests
         PROPERTIES LABELS "api-contract"
     )
+    add_subdirectory(Tests/AgentControl)
 endif()
