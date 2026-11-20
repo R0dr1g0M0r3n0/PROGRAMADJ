@@ -160,7 +160,7 @@ The app currently has no external agent-control channel. `PlaybackController` ow
 
 ## Next step
 - PR1 remains local as `aa4c852`; the earlier push attempt was rejected with HTTP 403, and no remote branch or PR was created. This task is the PR2 slice: app-to-helper embedding plus the focused packaging contract test. CMake's active source includes the PR2 test target but excludes the PR3 `add_subdirectory(Tests/AgentControl)` wiring; PR3 live-peer fixtures and their CMake file remain uncommitted and untouched.
-- PR2 verification on 2026-11-20: `cmake -S . -B build -G Xcode` succeeded; `cmake --build build --config Debug --target AudioForgeAgentControlTests` succeeded; focused CTest passed 1/1; `git diff --check` succeeded. The PR2 commits and exact combined authored line count are recorded after local commit completion.
+- PR2 source/test commit: `d66b86d` (`feat(agent-control): embed discovery service in app`). Verification on 2026-11-20: `cmake -S . -B build -G Xcode` succeeded; focused build succeeded; focused CTest passed 1/1; `git diff --check` succeeded. The initial PR2 slice is 299 authored changed lines (+298/-1), including this tracker; a separate tracker-only evidence commit records the source commit and checks.
 - PR3 remains pending and must be handled only after this PR2 slice; this task performs no remote, Jira, or original-worktree operation.
 
 ### Authorized publication recovery
