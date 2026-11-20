@@ -64,7 +64,20 @@ set_target_properties(AudioForgeAgentControlService PROPERTIES
 add_executable(AudioForge MACOSX_BUNDLE
     App/AudioForgeApp.swift
 )
-target_link_libraries(AudioForge PRIVATE AudioForgeBridge)
+target_link_libraries(AudioForge PRIVATE AudioForgeBridge AudioForgeAgentControl)
+target_compile_definitions(AudioForge PRIVATE "$<$<CONFIG:Debug>:AF_XPC_DISCOVERY_PROBE>")
+add_dependencies(AudioForge AudioForgeAgentControlService)
+if(CMAKE_GENERATOR STREQUAL "Xcode")
+    set_property(TARGET AudioForge PROPERTY XCODE_EMBED_XPC_SERVICES AudioForgeAgentControlService)
+else()
+    set_property(TARGET AudioForge APPEND PROPERTY LINK_DEPENDS "$<TARGET_FILE:AudioForgeAgentControlService>")
+    set(embedded_service "$<TARGET_BUNDLE_DIR:AudioForge>/Contents/XPCServices/${agent_control_service_id}.xpc")
+    add_custom_command(TARGET AudioForge POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E rm -rf "${embedded_service}"
+        COMMAND "${CMAKE_COMMAND}" -E copy_directory "$<TARGET_BUNDLE_DIR:AudioForgeAgentControlService>" "${embedded_service}"
+        VERBATIM
+    )
+endif()
 set_target_properties(AudioForge PROPERTIES
     MACOSX_BUNDLE_GUI_IDENTIFIER com.audioforge.studio
     XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER com.audioforge.studio
@@ -73,6 +86,13 @@ set_target_properties(AudioForge PROPERTIES
 )
 
 if(BUILD_TESTING)
+    add_executable(AudioForgeAgentControlTests Tests/AgentControl/agent_control_test.mm)
+    target_compile_options(AudioForgeAgentControlTests PRIVATE -fobjc-arc)
+    target_include_directories(AudioForgeAgentControlTests PRIVATE AgentControl/src)
+    target_link_libraries(AudioForgeAgentControlTests PRIVATE AudioForgeAgentControl)
+    add_dependencies(AudioForgeAgentControlTests AudioForge)
+    add_test(NAME AudioForgeAgentControlTests
+        COMMAND AudioForgeAgentControlTests "$<TARGET_BUNDLE_DIR:AudioForge>")
     add_executable(AudioForgeDJLibraryTests
         Tests/DJLibrary/library_boundary_smoke_test.cpp
     )
