@@ -2,10 +2,10 @@
 
 ## Build ownership
 
-CMake is the sole owner of the project graph and generates the Xcode project under `build/`. Do not add a handwritten `.xcodeproj` or duplicate target/source declarations in Xcode. The generated project, CMake intermediates, and other build products remain untracked through the root `.gitignore`.
+CMake 3.29 or later is required for Xcode XPC embedding. CMake is the sole owner of the project graph and generates the Xcode project under `build/`. Do not add a handwritten `.xcodeproj` or duplicate target/source declarations in Xcode. The generated project, CMake intermediates, and other build products remain untracked through the root `.gitignore`.
 
-The graph builds separate C++20 Engine and DJLibrary static libraries, an Objective-C++ Bridge, and a SwiftUI macOS app in one generated Xcode project. CTest exercises the Engine's C ABI, the Bridge's Objective-C surface, and the independently linked DJLibrary boundary. The app imports only the Bridge header; the Bridge calls only the versioned C API. DJLibrary does not link Engine.
-All targets share a macOS 14.0 deployment baseline.
+The graph builds separate C++20 Engine and DJLibrary static libraries, an Objective-C++ Bridge, and a SwiftUI macOS app in one generated Xcode project. CTest exercises the Engine's C ABI, the Bridge's Objective-C surface, and the independently linked DJLibrary boundary. The app imports the public Bridge and AgentControl headers; the Bridge calls only the versioned C API. DJLibrary does not link Engine.
+All targets share a macOS 14.0 deployment baseline. The app embeds a private [agent-control XPC service](agent-control-xpc.md); it is separate from the Engine and audio path. The tested app packaging path uses the Xcode generator. The non-Xcode packaging fallback is unverified.
 
 ## Native Engine API
 
@@ -36,19 +36,20 @@ DJLibrary currently exports only a build marker to prove isolated compilation an
 
 | Boundary | Ownership | Allowed dependencies |
 | --- | --- | --- |
-| `App/` | SwiftUI application shell, app lifecycle, and presentation | `Bridge/` public surface; platform frameworks |
+| `App/` | SwiftUI application shell, app lifecycle, and presentation | `Bridge/` and `AgentControl/` public surfaces; platform frameworks |
+| `AgentControl/` | Private XPC discovery and peer identity checks | Foundation, Security, libxpc; no playback or Engine dependency |
 | `Bridge/` | Objective-C++ adaptation between Swift/Objective-C and the stable C ABI | `API/`; Apple runtime/frameworks required for adaptation |
 | `Engine/` | Reusable audio/domain implementation and static library | C++ standard library and explicitly approved engine internals; no Swift, AppKit, or Rekordbox dependency |
 | `API/` | Versioned, C-compatible public boundary shared by the bridge, engine, and native tests | C language/ABI types only; no Swift or Objective-C++ declarations |
 | `DJLibrary/` | Isolated library/catalog module; currently a build-only marker, with import behavior reserved for later work | C++ standard library only; no Engine dependency or ownership of Engine internals |
 | `Harness/` | Python CLI that invokes the configured CTest suite | Python standard library and CTest; must not become a second engine implementation |
-| `Tests/` | Native and app-level automated tests | Public APIs of the component under test and approved test frameworks |
+| `Tests/` | Native and app-level automated tests | Public APIs by default; focused AgentControl tests may include private headers when exercising an internal security boundary |
 | `TestFixtures/` | Small, synthetic test-only inputs; currently an inert empty collection manifest | No production code; never store a user's music library or Rekordbox database here |
 | `docs/` | Architecture, build, and repository guidance | No runtime dependencies |
 
 ## Dependency direction
 
-The app calls the bridge. The bridge calls the versioned C API; Engine implements that API. C++ implementation types remain behind the C ABI and are not exposed to Swift. Native tests and the harness exercise public boundaries rather than reaching into implementation details. DJLibrary remains separate from the audio Engine so library/import behavior cannot become an implicit engine dependency.
+The app uses Bridge for Engine access and AgentControl for private XPC discovery. The bridge calls the versioned C API; Engine implements that API. C++ implementation types remain behind the C ABI and are not exposed to Swift. Tests use public boundaries by default, with focused AgentControl tests permitted to include private headers to exercise internal security behavior. DJLibrary remains separate from the audio Engine so library/import behavior cannot become an implicit engine dependency.
 
 No module may depend upward on `App/`. Avoid cycles: shared contracts belong in `API/`, while implementation stays in its owning module.
 

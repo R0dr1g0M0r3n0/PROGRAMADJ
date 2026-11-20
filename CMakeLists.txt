@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.26)
+cmake_minimum_required(VERSION 3.29)
 
 # Keep the app and both native libraries on the same deployment baseline.
 set(CMAKE_OSX_DEPLOYMENT_TARGET 14.0)
@@ -35,6 +35,31 @@ add_library(AudioForgeBridge STATIC
 target_include_directories(AudioForgeBridge PUBLIC Bridge/include)
 target_include_directories(AudioForgeBridge PRIVATE API)
 target_link_libraries(AudioForgeBridge PUBLIC AudioForgeEngine "-framework Foundation")
+
+set(agent_control_service_id com.audioforge.studio.agent-control)
+add_library(AudioForgeAgentControl STATIC
+    AgentControl/src/AgentControlClient.mm
+    AgentControl/src/AgentControlIdentity.mm
+    AgentControl/src/AgentControlWire.mm
+)
+target_compile_options(AudioForgeAgentControl PRIVATE -fobjc-arc)
+target_include_directories(AudioForgeAgentControl PUBLIC AgentControl/include)
+target_link_libraries(AudioForgeAgentControl PUBLIC "-framework Foundation" "-framework Security")
+
+add_executable(AudioForgeAgentControlService MACOSX_BUNDLE AgentControl/src/AgentControlService.mm)
+target_compile_options(AudioForgeAgentControlService PRIVATE -fobjc-arc)
+target_link_libraries(AudioForgeAgentControlService PRIVATE AudioForgeAgentControl)
+set_target_properties(AudioForgeAgentControlService PROPERTIES
+    OUTPUT_NAME "${agent_control_service_id}"
+    BUNDLE_EXTENSION xpc
+    MACOSX_BUNDLE_GUI_IDENTIFIER "${agent_control_service_id}"
+    MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/AgentControl/ServiceInfo.plist.in"
+    XCODE_PRODUCT_TYPE com.apple.product-type.xpc-service
+    XCODE_EXPLICIT_FILE_TYPE wrapper.xpc-service
+    XCODE_ATTRIBUTE_WRAPPER_EXTENSION xpc
+    XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "${agent_control_service_id}"
+    XCODE_ATTRIBUTE_CODE_SIGN_STYLE Manual
+)
 
 add_executable(AudioForge MACOSX_BUNDLE
     App/AudioForgeApp.swift
