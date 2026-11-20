@@ -17,10 +17,10 @@ The app currently has no external agent-control channel. `PlaybackController` ow
 - Preserve all existing audio and Rekordbox/library data; no destructive work without explicit, scoped authorization.
 - Deployment is for this Mac only; do not add multi-Mac distribution, notarization, or a network service unless separately requested.
 - No network-exposed API, arbitrary agent-supplied file paths, or weakened identity checks for convenience.
-- Keep user changes in the original worktree untouched. The original worktree retains unrelated UI prototype changes; implementation is isolated in a temporary Git worktree on `feature/agent-control-api`, based on `408c720`.
+- Keep user changes in the original worktree untouched. The original worktree retains unrelated UI prototype changes; implementation is isolated in `/private/tmp/agent-control-api` on `feature/agent-control-api`. The current clean stack is based on local `origin/main` at `ad57c1f`; PR3 is measured against PR2 tip `04b7d65`.
 - CMake owns native targets. No XPC/MCP target, helper packaging, signing, or XPC tests existed at exploration time. The local app build is documented with code signing disabled; runtime peer authentication must fail closed until a signed helper identity is actually available. Xcode shows the user's Personal Team; this is local-development signing context, not a distribution identity.
 - Strict TDD is enabled by the workspace instructions: RED → GREEN → REFACTOR. Source: user-provided AGENTS.md instructions. Test runner: CMake/CTest, with applicable Xcode and Python harness checks.
-- No push, PR, or merge is authorized.
+- Publication of `feature/agent-control-api` was explicitly authorized for the then-current GitHub session; the PR1 push was rejected with HTTP 403 for `InformaticaAcre`. This task is local-only: do not retry without new explicit authorization for a writable session, and do not create a PR or merge.
 
 ## Acceptance criteria
 - An external agent client can discover and call the local API; calls reach the real application process and results reflect its live state.
@@ -53,7 +53,7 @@ The app currently has no external agent-control channel. `PlaybackController` ow
 ## Route and delivery
 - Route: delegated direct. The architecture/build map required reading 4+ files; PD-192 spans the XPC contract, app integration, CMake wiring, and tests, triggering the bounded writer route.
 - One writer at a time; no parallel source writers.
-- Delivery strategy: `ask-on-risk`; user selected `stacked-to-main` on 2026-11-19. The current PD-192 implementation and live-peer verification form one coherent first slice (890 authored changed lines at latest assessment; the ~400-line figure is a planning heuristic, not a hard cap). It will be locally committed as the PD-192 work unit for a future PR directly to `main`. Any later authorized feature slice must follow only after the prior slice is merged to `main`. No push or PR creation is authorized.
+- Delivery strategy: `ask-on-risk`; user selected `stacked-to-main` on 2026-11-19. The original combined work was split into PR1 (foundation), PR2 (app embedding and focused tests), and PR3 (signed live-peer tests). Each slice is measured against its predecessor, and each future PR targets `main` only after its predecessors are merged. No remote operation is authorized for the current task.
 - Work-unit commits use Conventional Commits; do not add Co-Authored-By or AI attribution.
 
 ## Verification
@@ -159,15 +159,35 @@ The app currently has no external agent-control channel. `PlaybackController` ow
 - The test requires macOS unified logging to retain and expose the helper denial; environments where that record is unavailable fail closed. No broader suite/build was run.
 
 ## Next step
-- PR1 remains local as `aa4c852`; the earlier push attempt was rejected with HTTP 403, and no remote branch or PR was created. This task is the PR2 slice: app-to-helper embedding plus the focused packaging contract test. CMake's active source includes the PR2 test target but excludes the PR3 `add_subdirectory(Tests/AgentControl)` wiring; PR3 live-peer fixtures and their CMake file remain uncommitted and untouched.
-- PR2 source/test commit: `d66b86d` (`feat(agent-control): embed discovery service in app`). Verification on 2026-11-20: `cmake -S . -B build -G Xcode` succeeded; focused build succeeded; focused CTest passed 1/1; `git diff --check` succeeded. The initial PR2 slice is 299 authored changed lines (+298/-1), including this tracker; a separate tracker-only evidence commit records the source commit and checks.
-- PR3 remains pending and must be handled only after this PR2 slice; this task performs no remote, Jira, or original-worktree operation.
+- PR1 remains local as `aa4c852` (397 authored lines). An earlier push, explicitly authorized for the current GitHub session, was rejected with HTTP 403 for `InformaticaAcre`; no remote branch or PR was created. Do not retry without new explicit authorization for a writable session.
+- PR2 consists of `d66b86d` (`feat(agent-control): embed discovery service in app`) and tracker-only `04b7d65`; the combined slice is 299 authored lines (+298/-1) against `aa4c852`. Verification on 2026-11-20: `cmake -S . -B build -G Xcode` succeeded; focused build succeeded; focused CTest passed 1/1; `git diff --check` succeeded.
+- PR3 is locally verified and committed as recorded below. Publication remains pending and was not attempted. No Jira or original-worktree operation was performed for PR3.
+
+### PR3 signed live-peer test slice — 2026-11-20
+
+- Route: delegated direct, with the existing untracked fixtures preserved and the root hook registered under `BUILD_TESTING`. Strict TDD remains enabled by workspace instructions; the runner is CMake/CTest. RDD was off by global setting and was not toggled.
+- Source/test commit: `7e308e8cc122cd0bd1be9d589a5738b6ccccedb3` (`test(agent-control): verify signed XPC peer rejection`), 239 additions against `04b7d65`. The complete PR3 slice including the tracker is 275 authored changed lines (+267/-8); the whole local stack against `ad57c1f` is not the PR3 review diff.
+- RED (current registration): after fresh signed Xcode configure, `ctest --test-dir build/f1-signed -C Debug --output-on-failure --no-tests=error -R '^AudioForgeAgentControlLivePeerTests$'` exited 8 with `No tests were found!!!` before adding the root hook. Historical F1 behavioral RED is recorded above but was not replayed. The previous local `LastTest.log` corroborated historical GREEN/REFACTOR, including both passing scenarios and the helper denial (4.272 s for the scenarios).
+- GREEN: after adding the hook, the signed suite registered and both asymmetric identity checks passed. The wrong helper replied under its test requirement (`reply: 0`) but production discovery returned `discovery: 4`. The signed production app probe returned `XPC discovery status: 0`; the matching client got `reply: 0`; the wrong client was interrupted and a new helper signing-denial log was observed.
+- REFACTOR verification: the default configuration did not register the live suite. The existing opt-in fixtures are excluded from the default build and the signed CTest registration is Debug-only. No further fixture or production refactor was needed.
+
+| Verification command | Result |
+| --- | --- |
+| `cmake --build build --config Debug --target AudioForgeAgentControlTests` | Exit 0; `** BUILD SUCCEEDED **` |
+| `ctest --test-dir build -C Debug --output-on-failure -R '^AudioForgeAgentControlTests$'` | Exit 0; 1/1 passed, 0.26 s |
+| `cmake -S . -B build/f1-signed -G Xcode -DAUDIOFORGE_ENABLE_SIGNED_XPC_TESTS=ON` | Exit 0; signed test registered after wiring |
+| `xcodebuild -project build/f1-signed/AudioForgeStudio.xcodeproj -target AudioForgeAgentControlLivePeerTests -configuration Debug -sdk macosx DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=YES CODE_SIGN_IDENTITY='Apple Development' PROVISIONING_PROFILE_SPECIFIER='' build` | Exit 0; `** BUILD SUCCEEDED **`; team from the verified existing app signature, no credential inspection or provisioning change |
+| `ctest --test-dir build/f1-signed -C Debug --output-on-failure -V -R '^AudioForgeAgentControlLivePeerTests$'` | Exit 0; 1/1 CTest entry and 2/2 live scenarios passed (5.414 s for scenarios, 5.50 s total) |
+| `git diff --check` / `git diff --cached --check` | Exit 0; included all four initially untracked fixtures via no-index whitespace checks before staging and via the staged check afterward |
+
+- Residual risk: the macOS helper log correlation is helper-wide rather than request-unique and depends on timely log visibility. A bare interruption is not accepted. Full native tests, other macOS versions, non-Xcode packaging, and playback were not run for PR3.
+- Rollback boundary: remove the PR3 root CMake hook and four signed test fixture files without changing PR1/PR2 behavior; this tracker-only evidence is separate.
 
 ### Authorized publication recovery
 
-- User authorized use of the configured GitHub origin, the current GitHub session, push of `feature/agent-control-api`, PR creation to `main`, and merge.
+- Historical authorization covered the configured GitHub origin and then-current session, push of `feature/agent-control-api`, PR creation to `main`, and merge. This PR3 task is local-only; that prior authorization does not permit a retry.
 - [x] PUB.1 — Rebase/isolate only the PD-192/PD-193 work onto `origin/main` (`ad57c1f`); preserve the old branch under local backup `backup/agent-control-api-pre-isolation`. The single CMake conflict was resolved by retaining main's app/test graph and adding only AgentControl targets. A fresh Xcode configure, focused AgentControl build/test (1/1), base CTest (4/4), and `git diff --check` passed. The initial stale generated build failed on missing prior-branch Swift files; reconfiguring `cmake -S . -B build -G Xcode` fixed the stale graph.
-- [x] PUB.2 — Split the 925-line aggregate API delta into three cohesive direct-to-main PRs, each planned below 400 authored changed lines and with tests/docs beside its behavior: PR1 XPC service foundation (397, commit `aa4c852`); PR2 app embedding + focused packaging contract (estimate ~320); PR3 live signed-peer verification (estimate ~240). Recount actual diffs before each PR; no size exception is approved.
+- [x] PUB.2 — The historical 925-line aggregate estimate was split into three cohesive direct-to-main slices. Actual authored counts against each predecessor are PR1 397 (`aa4c852`), PR2 299 (`d66b86d` plus tracker-only `04b7d65`, +298/-1), and PR3 275 including its tracker update (+267/-8; source commit `7e308e8` adds 239). The complete current stack is 955 authored lines against clean `origin/main` `ad57c1f`; no size exception is approved.
 - [ ] PUB.3 — Publish PR1, wait for required CI/review, merge it, then publish/verify/merge PR2 and PR3 in sequence. The current GitHub session cannot push; exact error is recorded above. Do not retry with another credential/session unless explicitly authorized.
 - CMake 3.29 minimum is required for `XCODE_EMBED_XPC_SERVICES`, introduced in CMake 3.29 ([official CMake documentation](https://cmake.org/cmake/help/latest/prop_tgt/XCODE_EMBED_type.html)).
 
