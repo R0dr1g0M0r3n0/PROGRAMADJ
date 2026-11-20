@@ -20,7 +20,7 @@ The app currently has no external agent-control channel. `PlaybackController` ow
 - Keep user changes in the original worktree untouched. The original worktree retains unrelated UI prototype changes; implementation is isolated in a temporary Git worktree on `feature/agent-control-api`, based on `408c720`.
 - CMake owns native targets. No XPC/MCP target, helper packaging, signing, or XPC tests existed at exploration time. The local app build is documented with code signing disabled; runtime peer authentication must fail closed until a signed helper identity is actually available. Xcode shows the user's Personal Team; this is local-development signing context, not a distribution identity.
 - Strict TDD is enabled by the workspace instructions: RED → GREEN → REFACTOR. Source: user-provided AGENTS.md instructions. Test runner: CMake/CTest, with applicable Xcode and Python harness checks.
-- No push, PR, or merge is authorized.
+- At initial implementation time, no push, PR, or merge was authorized; publication authorization was granted separately later and is recorded below.
 
 ## Acceptance criteria
 - An external agent client can discover and call the local API; calls reach the real application process and results reflect its live state.
@@ -53,7 +53,7 @@ The app currently has no external agent-control channel. `PlaybackController` ow
 ## Route and delivery
 - Route: delegated direct. The architecture/build map required reading 4+ files; PD-192 spans the XPC contract, app integration, CMake wiring, and tests, triggering the bounded writer route.
 - One writer at a time; no parallel source writers.
-- Delivery strategy: `ask-on-risk`; user selected `stacked-to-main` on 2026-11-19. The current PD-192 implementation and live-peer verification form one coherent first slice (890 authored changed lines at latest assessment; the ~400-line figure is a planning heuristic, not a hard cap). It will be locally committed as the PD-192 work unit for a future PR directly to `main`. Any later authorized feature slice must follow only after the prior slice is merged to `main`. No push or PR creation is authorized.
+- Delivery strategy: `ask-on-risk`; user selected `stacked-to-main` on 2026-11-19. The current PD-192 implementation and live-peer verification form one coherent first slice (890 authored changed lines at latest assessment; the ~400-line figure is a planning heuristic, not a hard cap). It will be locally committed as the PD-192 work unit for a future PR directly to `main`. Any later authorized feature slice must follow only after the prior slice is merged to `main`. At the time this delivery plan was recorded, no push or PR creation was authorized; publication was authorized separately later and is tracked below.
 - Work-unit commits use Conventional Commits; do not add Co-Authored-By or AI attribution.
 
 ## Verification
@@ -159,16 +159,17 @@ The app currently has no external agent-control channel. `PlaybackController` ow
 - The test requires macOS unified logging to retain and expose the helper denial; environments where that record is unavailable fail closed. No broader suite/build was run.
 
 ## Next step
-- PR1 remains local as `aa4c852`; the earlier push attempt was rejected with HTTP 403, and no remote branch or PR was created. This task is the PR2 slice: app-to-helper embedding plus the focused packaging contract test. CMake's active source includes the PR2 test target but excludes the PR3 `add_subdirectory(Tests/AgentControl)` wiring; PR3 live-peer fixtures and their CMake file remain uncommitted and untouched.
-- PR2 source/test commit: `d66b86d` (`feat(agent-control): embed discovery service in app`). Verification on 2026-11-20: `cmake -S . -B build -G Xcode` succeeded; focused build succeeded; focused CTest passed 1/1; `git diff --check` succeeded. The initial PR2 slice is 299 authored changed lines (+298/-1), including this tracker; a separate tracker-only evidence commit records the source commit and checks.
-- PR3 remains pending and must be handled only after this PR2 slice; this task performs no remote, Jira, or original-worktree operation.
+- PR1 was published as PR #13 and merged at `7e615782b704817ca2097a368b4fdb8d7a9e2247`; its branch head was `aa4c852`. The earlier HTTP 403 as `InformaticaAcre` was resolved after the user specified `rodri.moreno.moreno.82@gmail.com` and the GitHub CLI account was switched to `R0dr1g0M0r3n0`.
+- PR2 is the current local slice: app-to-helper embedding plus the focused packaging contract test. CMake's active source includes the PR2 test target but excludes the PR3 `add_subdirectory(Tests/AgentControl)` wiring; PR3 live-peer fixtures and their CMake file remain uncommitted and untouched.
+- PR2 source/test commit: `d66b86d` (`feat(agent-control): embed discovery service in app`). Verification on 2026-11-20: `cmake -S . -B build -G Xcode` succeeded; focused build succeeded; focused CTest passed 1/1; `git diff --check` succeeded. The initial PR2 slice is 299 authored changed lines (+298/-1), including the tracker; a separate tracker-only evidence commit records the source commit and checks. PR2 has not been published.
+- PR3 must wait until PR2 is merged. This task performs no remote, GitHub, Jira, or original-worktree operation; no Jira change is claimed.
 
 ### Authorized publication recovery
 
 - User authorized use of the configured GitHub origin, the current GitHub session, push of `feature/agent-control-api`, PR creation to `main`, and merge.
 - [x] PUB.1 — Rebase/isolate only the PD-192/PD-193 work onto `origin/main` (`ad57c1f`); preserve the old branch under local backup `backup/agent-control-api-pre-isolation`. The single CMake conflict was resolved by retaining main's app/test graph and adding only AgentControl targets. A fresh Xcode configure, focused AgentControl build/test (1/1), base CTest (4/4), and `git diff --check` passed. The initial stale generated build failed on missing prior-branch Swift files; reconfiguring `cmake -S . -B build -G Xcode` fixed the stale graph.
 - [x] PUB.2 — Split the 925-line aggregate API delta into three cohesive direct-to-main PRs, each planned below 400 authored changed lines and with tests/docs beside its behavior: PR1 XPC service foundation (397, commit `aa4c852`); PR2 app embedding + focused packaging contract (estimate ~320); PR3 live signed-peer verification (estimate ~240). Recount actual diffs before each PR; no size exception is approved.
-- [ ] PUB.3 — Publish PR1, wait for required CI/review, merge it, then publish/verify/merge PR2 and PR3 in sequence. The current GitHub session cannot push; exact error is recorded above. Do not retry with another credential/session unless explicitly authorized.
+- [ ] PUB.3 — PR1 publication is complete: PR #13 was merged at `7e615782b704817ca2097a368b4fdb8d7a9e2247` (PR1 branch head `aa4c852`). Remaining: publish PR2, wait for required CI/review, merge PR2, then publish/verify/merge PR3 in sequence. PR3 must not proceed before PR2 merges. The earlier HTTP 403 as `InformaticaAcre` was resolved by switching to GitHub CLI account `R0dr1g0M0r3n0` after the user specified `rodri.moreno.moreno.82@gmail.com`; the prior cannot-push claim is no longer current. PUB.3 remains open until PR2 and PR3 are complete.
 - CMake 3.29 minimum is required for `XCODE_EMBED_XPC_SERVICES`, introduced in CMake 3.29 ([official CMake documentation](https://cmake.org/cmake/help/latest/prop_tgt/XCODE_EMBED_type.html)).
 
 ## Relevant files
